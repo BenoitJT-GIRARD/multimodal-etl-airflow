@@ -1,0 +1,116 @@
+[project]
+name = "multimodal_etl"
+version = "0.1.0"
+description = "Pipeline ETL d'extraction de données multimodales (texte + image) pour l'entraînement d'un détecteur de fake news."
+readme = "README.md"
+authors = [{ name = "Benoît J. T. GIRARD", email = "53222414+BenoitJT-GIRARD@users.noreply.github.com" }]
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+keywords = [
+    "data-engineering",
+    "etl",
+    "airflow",
+    "multimodal",
+    "fake-news",
+    "web-scraping",
+]
+
+dependencies = [
+    # Extraction
+    "requests>=2.32",
+    "feedparser>=6.0",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.3",
+    "tldextract>=5.1",
+    "python-dotenv>=1.0",
+    # Transformation / stockage
+    "pandas>=2.2",
+    "pyarrow>=16",
+    "pillow>=10.4",
+    "sqlalchemy>=2.0",
+    # Tableau de bord KPI
+    "streamlit>=1.39",
+    "plotly>=5.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.7",
+    "bandit[toml]>=1.7",
+    "pre-commit>=4.0",
+    "ipykernel>=6.29",
+    "jupyter>=1.1",
+    "nbformat>=5.10",
+    "nbconvert>=7.16",
+    "python-pptx>=1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/multimodal_etl"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["data", "reports", "infos", "notebooks/.ipynb_checkpoints"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # comprehensions
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "N",   # pep8-naming
+    "RUF", # ruff-native rules
+]
+ignore = [
+    "E501",   # line length handled by the formatter
+    "RUF001", # ambiguous unicode (texte francais volontaire)
+    "RUF002", # ambiguous unicode dans les docstrings
+    "RUF003", # ambiguous unicode dans les commentaires
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+"scripts/*" = ["T201", "E402"]
+"dags/*" = ["E402"]
+"notebooks/**/*.ipynb" = ["E402", "F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]
+
+[tool.coverage.run]
+source = ["src/multimodal_etl"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", "data", "infos", "reports", ".venv"]
+skips = ["B101"]
