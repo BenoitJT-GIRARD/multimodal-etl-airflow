@@ -1,0 +1,35 @@
+erDiagram
+    SOURCE ||--o{ PUBLICATION : publie
+    PUBLICATION ||--|| CONTENU_TEXTE : porte
+    PUBLICATION ||--|| CONTENU_IMAGE : associe
+    PUBLICATION ||--o| LABEL : annote
+
+    PUBLICATION {
+        string id PK "KEY"
+        string language  "METADATA"
+        datetime published_at  "METADATA"
+        datetime ingested_at  "METADATA"
+        bool has_image  "VISION"
+        int text_length  "METADATA"
+    }
+
+    SOURCE {
+        string source  "METADATA"
+        string source_type  "METADATA"
+        string domain  "METADATA"
+        string url  "METADATA"
+    }
+
+    CONTENU_TEXTE {
+        string title  "NLP"
+        string text  "NLP"
+    }
+
+    CONTENU_IMAGE {
+        string image_url  "VISION"
+    }
+
+    LABEL {
+        string label  "TARGET"
+        string label_source  "METADATA"
+    }
