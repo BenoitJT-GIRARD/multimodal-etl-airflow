@@ -1,4 +1,4 @@
-# --- Python ---
+﻿# --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
@@ -43,6 +43,7 @@ coverage.xml
 
 # --- Donnees & artefacts ---
 data/raw/
+data/interim/
 data/processed/
 data/db/
 *.parquet
