@@ -86,9 +86,9 @@ FIELDS: tuple[FieldSpec, ...] = (
         "domain",
         "string",
         "METADATA",
-        "SOURCE",
+        "PUBLICATION",
         True,
-        "Nom de domaine de l'éditeur (signal de fiabilité de la source).",
+        "Nom de domaine de l'éditeur de l'article (signal de fiabilité).",
     ),
     FieldSpec(
         "title",
@@ -206,15 +206,17 @@ def champs_de(entite: str) -> tuple[FieldSpec, ...]:
     return tuple(spec for spec in FIELDS if spec.entite == entite)
 
 
+# Les empreintes ci-dessous servent uniquement à fabriquer des identifiants stables
+# et courts : elles ne protègent rien, d'où `usedforsecurity=False`.
 def genere_id(url: str, title: str) -> str:
     """Génère l'identifiant stable d'une publication à partir de l'URL et du titre."""
     graine = f"{url}|{title}".encode()
-    return hashlib.sha1(graine).hexdigest()[:16]
+    return hashlib.sha1(graine, usedforsecurity=False).hexdigest()[:16]
 
 
 def genere_source_id(source: str) -> str:
     """Génère la clé de jointure d'une source à partir de son nom."""
-    return hashlib.sha1(source.encode()).hexdigest()[:12]
+    return hashlib.sha1(source.encode(), usedforsecurity=False).hexdigest()[:12]
 
 
 @dataclass(slots=True)

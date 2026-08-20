@@ -62,7 +62,8 @@ def main() -> None:
     # --- Load ---
     logger.info("=== ETAPE 3/3 : CHARGEMENT ===")
     debut = time.perf_counter()
-    rows_loaded = run_load(dataset_path, LoadConfig())
+    bilan_chargement = run_load(dataset_path, LoadConfig())
+    rows_loaded = bilan_chargement["publications"]
     durations["load"] = time.perf_counter() - debut
 
     # --- Metriques d'execution ---

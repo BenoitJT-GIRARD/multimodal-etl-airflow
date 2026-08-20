@@ -57,7 +57,9 @@ def nom_de_fichier(image_url: str, type_mime: str) -> str:
     Le nom dépend uniquement de l'URL : relancer le pipeline réécrit le même
     fichier au lieu d'en accumuler des copies.
     """
-    empreinte = hashlib.sha1(image_url.encode()).hexdigest()[:16]
+    # Empreinte utilisée comme nom de fichier, pas comme protection : d'où
+    # `usedforsecurity=False`.
+    empreinte = hashlib.sha1(image_url.encode(), usedforsecurity=False).hexdigest()[:16]
     extension = _EXTENSIONS.get(type_mime, ".jpg")
     return f"{empreinte}{extension}"
 
