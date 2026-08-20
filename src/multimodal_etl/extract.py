@@ -19,15 +19,17 @@ from pathlib import Path
 from multimodal_etl.config import RAW_DIR, ExtractionConfig, ImageConfig, ensure_dirs
 from multimodal_etl.images import telecharge_images
 from multimodal_etl.logging_setup import get_logger
-from multimodal_etl.sources import fakenewsnet, newsdata, rss
+from multimodal_etl.sources import fakenewsnet, kaggle_fakeddit, newsdata, rss
 
 logger = get_logger(__name__)
 
-# Table des connecteurs : nom logique -> fonction d'extraction.
+# Table des connecteurs : nom logique -> fonction d'extraction. Ajouter une source
+# au pipeline revient à écrire un module dans `sources/` et une ligne ici.
 _CONNECTEURS = {
     "rss": rss.fetch_all_rss,
     "newsdata": newsdata.fetch_newsdata,
     "fakenewsnet": fakenewsnet.fetch_fakenewsnet,
+    "kaggle_fakeddit": kaggle_fakeddit.fetch_fakeddit,
 }
 
 
