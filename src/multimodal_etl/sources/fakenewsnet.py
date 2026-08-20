@@ -34,13 +34,16 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
 def _parse_row(row: dict[str, str]) -> dict[str, object]:
     """Transforme une ligne FakeNewsNet en dictionnaire brut normalise."""
     news_source = row.get("news_source", "politifact")
+    image_url = row.get("image_url", "")
     return {
         "source": f"fakenewsnet:{news_source}",
         "source_type": "dataset",
+        "access_method": "telechargement_github",
         "title": row.get("title", ""),
         "text": row.get("text", "") or row.get("title", ""),
         "url": row.get("url", ""),
-        "image_url": row.get("image_url", ""),
+        "image_url": image_url,
+        "image_source": "native" if image_url else "aucune",
         "published_at": row.get("published_at", ""),
         "language": "en",
         "label": row.get("label", ""),  # 'real' ou 'fake'

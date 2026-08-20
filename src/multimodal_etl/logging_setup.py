@@ -1,9 +1,9 @@
-"""Journalisation centralisee du pipeline.
+"""Journalisation centralisée du pipeline.
 
-La mission demande explicitement d'« ajouter des logs » (etape 2) et d'« utiliser
-Logging pour journaliser chaque transformation » (etape 3). On configure donc une
-fois pour toutes le module standard ``logging`` : sortie console + fichier horodate
-dans ``logs/``. Chaque module recupere son logger via :func:`get_logger`.
+La mission demande explicitement d'« ajouter des logs » (étape 2) et d'« utiliser
+Logging pour journaliser chaque transformation » (étape 3). On configure donc une
+fois pour toutes le module standard ``logging`` : sortie console + fichier horodaté
+dans ``logs/``. Chaque module récupère son logger via :func:`get_logger`.
 """
 
 from __future__ import annotations
@@ -14,40 +14,40 @@ from logging import Logger
 
 from multimodal_etl.config import LOGS_DIR
 
-_LOG_FORMAT = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-_configured = False
+_FORMAT = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+_FORMAT_DATE = "%Y-%m-%d %H:%M:%S"
+_configure = False
 
 
 def setup_logging(level: int = logging.INFO, logfile: str = "multimodal_etl.log") -> None:
     """Configure la journalisation racine (console + fichier).
 
-    Idempotent : un seul appel reel, les suivants sont ignores. On l'appelle au
-    debut de chaque script / notebook / tache Airflow.
+    Idempotent : un seul appel réel, les suivants sont ignorés. On l'appelle au
+    début de chaque script, notebook ou tâche Airflow.
     """
-    global _configured
-    if _configured:
+    global _configure
+    if _configure:
         return
 
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    formatter = logging.Formatter(_LOG_FORMAT, datefmt=_DATE_FORMAT)
+    formateur = logging.Formatter(_FORMAT, datefmt=_FORMAT_DATE)
 
     console = logging.StreamHandler(stream=sys.stdout)
-    console.setFormatter(formatter)
+    console.setFormatter(formateur)
 
-    file_handler = logging.FileHandler(LOGS_DIR / logfile, encoding="utf-8")
-    file_handler.setFormatter(formatter)
+    fichier = logging.FileHandler(LOGS_DIR / logfile, encoding="utf-8")
+    fichier.setFormatter(formateur)
 
-    root = logging.getLogger()
-    root.setLevel(level)
-    root.handlers.clear()
-    root.addHandler(console)
-    root.addHandler(file_handler)
-    _configured = True
+    racine = logging.getLogger()
+    racine.setLevel(level)
+    racine.handlers.clear()
+    racine.addHandler(console)
+    racine.addHandler(fichier)
+    _configure = True
 
 
 def get_logger(name: str) -> Logger:
-    """Renvoie un logger nomme, en s'assurant que la configuration est en place."""
-    if not _configured:
+    """Renvoie un logger nommé, en s'assurant que la configuration est en place."""
+    if not _configure:
         setup_logging()
     return logging.getLogger(name)

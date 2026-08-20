@@ -1,9 +1,13 @@
-"""Etape E — extraction (collecte des donnees brutes).
+"""Étape E — extraction (collecte des données brutes).
 
-Ce module orchestre les trois connecteurs (RSS, NewsData.io, FakeNewsNet) et
-sauvegarde le resultat brut au format JSON dans ``data/raw/``. Il s'execute
-**sans intervention manuelle** : chaque source est isolee dans un try/except,
-de sorte qu'une source en panne n'empeche jamais les autres de fonctionner.
+Ce module orchestre les connecteurs de sources, télécharge les images associées,
+puis sauvegarde le résultat brut au format JSON dans ``data/raw/``. Il s'exécute
+**sans intervention manuelle** : chaque source est isolée dans un try/except, de
+sorte qu'une source en panne n'empêche jamais les autres de fonctionner.
+
+Le format de sortie est du **JSON** et non du CSV : une publication multimodale
+associe un texte et un **chemin de fichier image**, et le JSON conserve cette
+structure sans ambiguïté (le CSV serait suffisant pour du texte seul).
 """
 
 from __future__ import annotations
@@ -12,57 +16,86 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from multimodal_etl.config import RAW_DIR, ExtractionConfig, ensure_dirs
+from multimodal_etl.config import RAW_DIR, ExtractionConfig, ImageConfig, ensure_dirs
+from multimodal_etl.images import telecharge_images
 from multimodal_etl.logging_setup import get_logger
-from multimodal_etl.sources import newsdata, rss
-from multimodal_etl.sources.fakenewsnet import fetch_fakenewsnet
+from multimodal_etl.sources import fakenewsnet, newsdata, rss
 
 logger = get_logger(__name__)
 
 # Table des connecteurs : nom logique -> fonction d'extraction.
-_CONNECTORS = {
+_CONNECTEURS = {
     "rss": rss.fetch_all_rss,
     "newsdata": newsdata.fetch_newsdata,
-    "fakenewsnet": fetch_fakenewsnet,
+    "fakenewsnet": fakenewsnet.fetch_fakenewsnet,
 }
 
 
-def _timestamp() -> str:
+def _horodatage() -> str:
     """Horodatage compact pour nommer les fichiers de sortie."""
     return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
 
-def extract_all(config: ExtractionConfig | None = None) -> list[dict[str, object]]:
-    """Lance tous les connecteurs et renvoie la liste agregee des publications brutes."""
+def collecte_sources(config: ExtractionConfig | None = None) -> tuple[list[dict], dict[str, int]]:
+    """Lance tous les connecteurs et renvoie les publications brutes et le bilan par source.
+
+    Le bilan (nombre de publications par connecteur, ``-1`` en cas d'échec) alimente
+    le KPI « sources en échec » du plan de monitoring.
+    """
     config = config or ExtractionConfig()
     ensure_dirs()
 
-    all_records: list[dict[str, object]] = []
-    for name, connector in _CONNECTORS.items():
-        logger.info("Extraction : demarrage de la source '%s'", name)
+    publications: list[dict] = []
+    bilan: dict[str, int] = {}
+
+    for nom, connecteur in _CONNECTEURS.items():
+        logger.info("Extraction : démarrage de la source '%s'", nom)
         try:
-            records = connector(config)
+            recuperees = connecteur(config)
         except Exception as exc:
-            logger.error("Extraction : la source '%s' a echoue : %s", name, exc)
-            records = []
-        logger.info("Extraction : source '%s' -> %d publications", name, len(records))
-        all_records.extend(records)
+            logger.error("Extraction : la source '%s' a échoué : %s", nom, exc)
+            bilan[nom] = -1
+            continue
+        logger.info("Extraction : source '%s' -> %d publications", nom, len(recuperees))
+        bilan[nom] = len(recuperees)
+        publications.extend(recuperees)
 
-    logger.info("Extraction : %d publications brutes au total", len(all_records))
-    return all_records
+    logger.info("Extraction : %d publications brutes au total", len(publications))
+    return publications, bilan
 
 
-def save_raw(records: list[dict[str, object]], path: Path | None = None) -> Path:
+def extract_all(config: ExtractionConfig | None = None) -> list[dict]:
+    """Collecte les publications de toutes les sources, images comprises."""
+    publications, _ = collecte_sources(config)
+    telecharge_images(publications, ImageConfig())
+    return publications
+
+
+def save_raw(records: list[dict], path: Path | None = None) -> Path:
     """Sauvegarde les publications brutes en JSON et renvoie le chemin du fichier."""
     ensure_dirs()
-    path = path or RAW_DIR / f"raw_publications_{_timestamp()}.json"
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump(records, handle, ensure_ascii=False, indent=2)
-    logger.info("Extraction : %d publications ecrites dans %s", len(records), path)
+    path = path or RAW_DIR / f"raw_publications_{_horodatage()}.json"
+    with path.open("w", encoding="utf-8") as fichier:
+        json.dump(records, fichier, ensure_ascii=False, indent=2)
+    logger.info("Extraction : %d publications écrites dans %s", len(records), path)
     return path
 
 
-def run_extraction(config: ExtractionConfig | None = None) -> Path:
-    """Pipeline d'extraction complet : collecte puis sauvegarde JSON."""
-    records = extract_all(config)
-    return save_raw(records)
+def run_extraction(config: ExtractionConfig | None = None) -> tuple[Path, dict[str, object]]:
+    """Pipeline d'extraction complet : collecte, images, puis sauvegarde JSON.
+
+    Renvoie le chemin du fichier brut et un compte rendu de l'exécution (bilan par
+    source et statistiques de téléchargement d'images), consommé par les KPI.
+    """
+    publications, bilan = collecte_sources(config)
+    compteurs_images = telecharge_images(publications, ImageConfig())
+    chemin = save_raw(publications)
+
+    compte_rendu: dict[str, object] = {
+        "publications_extraites": len(publications),
+        "bilan_sources": bilan,
+        "sources_en_echec": sum(1 for valeur in bilan.values() if valeur <= 0),
+        "images": compteurs_images,
+        "fichier_brut": str(chemin),
+    }
+    return chemin, compte_rendu

@@ -1,15 +1,14 @@
-"""Etape T — transformation (nettoyage, validation, normalisation).
+"""Étape T — transformation (nettoyage, validation, normalisation).
 
-Pipeline reproductible et journalise qui convertit les publications brutes en un
-jeu de donnees propre et structure, conforme au :mod:`multimodal_etl.schema`. Il est
-organise en trois temps explicites — **lecture**, **traitement**, **export** — et
-modularise en petites fonctions (``nettoie_texte``, ``valide_image``, ...) afin que
-chaque transformation soit lisible, testable et tracee dans les logs.
+Pipeline reproductible et journalisé qui convertit les publications brutes en un
+jeu de données propre et structuré, conforme au :mod:`multimodal_etl.schema`. Il est
+organisé en trois temps explicites — **lecture**, **traitement**, **export** — et
+modularisé en petites fonctions (``nettoie_texte``, ``valide_image``, ...) afin que
+chaque transformation soit lisible, testable et tracée dans les logs.
 """
 
 from __future__ import annotations
 
-import hashlib
 import html
 import json
 import re
@@ -22,54 +21,47 @@ from bs4 import BeautifulSoup
 
 from multimodal_etl.config import PROCESSED_DIR, TransformConfig, ensure_dirs
 from multimodal_etl.logging_setup import get_logger
-from multimodal_etl.schema import COLUMNS, Publication
+from multimodal_etl.schema import COLUMNS, Publication, genere_id, genere_source_id
 
 logger = get_logger(__name__)
 
-_WHITESPACE_RE = re.compile(r"\s+")
+_ESPACES = re.compile(r"\s+")
 
 
 # --------------------------------------------------------------------------- #
 # Fonctions unitaires de transformation
 # --------------------------------------------------------------------------- #
 def nettoie_texte(texte: str) -> str:
-    """Nettoie un texte : retire le HTML, decode les entites, normalise les espaces."""
+    """Nettoie un texte : retire le HTML, décode les entités, normalise les espaces."""
     if not texte:
         return ""
     sans_html = BeautifulSoup(texte, "lxml").get_text(separator=" ")
     decode = html.unescape(sans_html)
-    return _WHITESPACE_RE.sub(" ", decode).strip()
+    return _ESPACES.sub(" ", decode).strip()
 
 
-def valide_image(image_url: str, config: TransformConfig) -> bool:
-    """Verifie qu'une URL d'image est plausible et exploitable.
+def valide_image(image_path: str) -> bool:
+    """Vérifie que le fichier image annoncé existe réellement sur le disque.
 
-    Controle le schema HTTP(S) et l'extension de fichier (en ignorant une
-    eventuelle chaine de requete). On ne telecharge pas l'image ici pour garder
-    l'etape rapide et hors-ligne ; la verification reseau releve du monitoring.
+    C'est le contrôle qui **garantit l'association texte-image** : l'étape
+    d'extraction a déjà téléchargé et validé l'image avec Pillow ; on vérifie ici
+    que le fichier est toujours là au moment de construire le jeu de données.
     """
-    if not image_url or not image_url.lower().startswith(("http://", "https://")):
+    if not image_path:
         return False
-    chemin = image_url.split("?", 1)[0].lower()
-    return chemin.endswith(config.valid_image_extensions)
+    return Path(image_path).is_file()
 
 
 def extrait_domaine(url: str) -> str:
-    """Extrait le nom de domaine enregistre d'une URL (signal de fiabilite)."""
+    """Extrait le nom de domaine enregistré d'une URL (signal de fiabilité)."""
     if not url:
         return ""
     extrait = tldextract.extract(url)
     return extrait.registered_domain or extrait.domain or ""
 
 
-def genere_id(url: str, title: str) -> str:
-    """Genere un identifiant stable et unique a partir de l'URL et du titre."""
-    graine = f"{url}|{title}".encode()
-    return hashlib.sha1(graine).hexdigest()[:16]
-
-
 def normalise_label(label: object) -> str | None:
-    """Harmonise le label de verite terrain : 'real', 'fake' ou None."""
+    """Harmonise le label de vérité terrain : 'real', 'fake' ou None."""
     if not label:
         return None
     valeur = str(label).strip().lower()
@@ -80,46 +72,78 @@ def normalise_label(label: object) -> str | None:
     return "unverified"
 
 
+def normalise_date(date_brute: object) -> str | None:
+    """Convertit une date de publication en chaîne ISO 8601, ou None si illisible.
+
+    Les sources n'emploient pas le même format (RFC 822 pour le RSS, ISO pour les
+    API, horodatage Unix pour certains jeux de données) : on ramène tout au même
+    format, sans quoi le KPI de fraîcheur serait incalculable.
+    """
+    if not date_brute:
+        return None
+    texte = str(date_brute).strip()
+    if not texte:
+        return None
+
+    # Horodatage Unix (Fakeddit expose un champ created_utc numérique).
+    if texte.isdigit():
+        try:
+            return datetime.fromtimestamp(int(texte), tz=UTC).isoformat(timespec="seconds")
+        except (ValueError, OSError):
+            return None
+
+    horodatage = pd.to_datetime(texte, errors="coerce", utc=True, format="mixed")
+    if pd.isna(horodatage):
+        return None
+    return horodatage.isoformat(timespec="seconds")
+
+
 # --------------------------------------------------------------------------- #
-# Construction d'une publication normalisee
+# Construction d'une publication normalisée
 # --------------------------------------------------------------------------- #
 def construit_publication(
     brut: dict[str, object], config: TransformConfig, ingere_le: str
 ) -> Publication | None:
     """Transforme un enregistrement brut en :class:`Publication`, ou None si invalide.
 
-    Une publication est ecartee si : titre vide, texte trop court, ou (en mode
-    multimodal strict) absence d'image valide — ce qui garantit l'association
+    Une publication est écartée si : titre vide, texte trop court, ou (en mode
+    multimodal strict) absence de fichier image — ce qui garantit l'association
     texte-image attendue par le cas d'usage.
     """
     titre = nettoie_texte(str(brut.get("title", "")))
     texte = nettoie_texte(str(brut.get("text", "")))
     url = str(brut.get("url", "")).strip()
     image_url = str(brut.get("image_url", "")).strip()
+    image_path = str(brut.get("image_path", "")).strip()
 
     if not titre:
         return None
     if len(texte) < config.min_text_length:
         return None
 
-    image_valide = valide_image(image_url, config)
-    if config.require_image and not image_valide:
+    a_une_image = valide_image(image_path)
+    if config.require_image and not a_une_image:
         return None
 
+    source = str(brut.get("source", "inconnu"))
     return Publication(
         id=genere_id(url, titre),
-        source=str(brut.get("source", "inconnu")),
+        source_id=genere_source_id(source),
+        source=source,
         source_type=str(brut.get("source_type", "inconnu")),
+        access_method=str(brut.get("access_method", "inconnu")),
+        domain=extrait_domaine(url),
         title=titre,
         text=texte,
-        url=url,
-        image_url=image_url if image_valide else "",
-        language=str(brut.get("language", "en")),
-        domain=extrait_domaine(url),
-        has_image=image_valide,
         text_length=len(texte),
+        image_url=image_url,
+        image_path=image_path if a_une_image else "",
+        image_source=str(brut.get("image_source", "aucune")) if a_une_image else "aucune",
+        has_image=a_une_image,
+        url=url,
+        language=str(brut.get("language", "en")),
         ingested_at=ingere_le,
-        published_at=str(brut.get("published_at", "")) or None,
+        published_at=normalise_date(brut.get("published_at")),
         label=normalise_label(brut.get("label")),
         label_source=(str(brut.get("label_source")) if brut.get("label_source") else None),
     )
@@ -129,10 +153,10 @@ def construit_publication(
 # Pipeline : lecture -> traitement -> export
 # --------------------------------------------------------------------------- #
 def lit_brut(path: Path) -> list[dict[str, object]]:
-    """Etape 1 — lecture : charge les publications brutes depuis un fichier JSON."""
+    """Étape 1 — lecture : charge les publications brutes depuis un fichier JSON."""
     logger.info("Transformation : lecture du fichier brut %s", path)
-    with path.open("r", encoding="utf-8") as handle:
-        records = json.load(handle)
+    with path.open("r", encoding="utf-8") as fichier:
+        records = json.load(fichier)
     logger.info("Transformation : %d publications brutes lues", len(records))
     return records
 
@@ -140,9 +164,9 @@ def lit_brut(path: Path) -> list[dict[str, object]]:
 def traite(
     records: list[dict[str, object]], config: TransformConfig
 ) -> tuple[pd.DataFrame, dict[str, int]]:
-    """Etape 2 — traitement : nettoie, valide, normalise, deduplique.
+    """Étape 2 — traitement : nettoie, valide, normalise, déduplique.
 
-    Renvoie le DataFrame final ainsi qu'un dictionnaire de statistiques (utilise
+    Renvoie le DataFrame final ainsi qu'un dictionnaire de statistiques (utilisé
     par les KPI et le monitoring).
     """
     ingere_le = datetime.now(UTC).isoformat(timespec="seconds")
@@ -151,7 +175,7 @@ def traite(
     publications = [construit_publication(brut, config, ingere_le) for brut in records]
     valides = [pub for pub in publications if pub is not None]
     logger.info(
-        "Transformation : %d/%d publications valides apres nettoyage", len(valides), total_brut
+        "Transformation : %d/%d publications valides après nettoyage", len(valides), total_brut
     )
 
     lignes = [pub.to_row() for pub in valides]
@@ -159,7 +183,7 @@ def traite(
 
     avant_dedup = len(df)
     df = df.drop_duplicates(subset="id").reset_index(drop=True)
-    logger.info("Transformation : %d doublons retires", avant_dedup - len(df))
+    logger.info("Transformation : %d doublons retirés", avant_dedup - len(df))
 
     stats = {
         "total_brut": total_brut,
@@ -168,12 +192,24 @@ def traite(
         "doublons": int(avant_dedup - len(df)),
         "avec_image": int(df["has_image"].sum()) if not df.empty else 0,
         "labellisees": int(df["label"].notna().sum()) if not df.empty else 0,
+        "images_natives": int((df["image_source"] == "native").sum()) if not df.empty else 0,
+        "images_open_graph": int((df["image_source"] == "open_graph").sum()) if not df.empty else 0,
     }
     return df, stats
 
 
-def exporte(df: pd.DataFrame, config: TransformConfig, path: Path | None = None) -> Path:
-    """Etape 3 — export : ecrit le dataset propre en Parquet ou CSV."""
+def exporte(
+    df: pd.DataFrame,
+    config: TransformConfig,
+    stats: dict[str, int] | None = None,
+    path: Path | None = None,
+) -> Path:
+    """Étape 3 — export : écrit le dataset propre et ses statistiques.
+
+    Les statistiques sont systématiquement écrites à côté du dataset, sous le même
+    nom : le tableau de bord charge toujours la paire, jamais un jeu de données
+    orphelin.
+    """
     ensure_dirs()
     horodatage = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     extension = "parquet" if config.output_format == "parquet" else "csv"
@@ -183,7 +219,12 @@ def exporte(df: pd.DataFrame, config: TransformConfig, path: Path | None = None)
         df.to_parquet(path, index=False)
     else:
         df.to_csv(path, index=False, encoding="utf-8")
-    logger.info("Transformation : dataset de %d lignes exporte vers %s", len(df), path)
+    logger.info("Transformation : dataset de %d lignes exporté vers %s", len(df), path)
+
+    chemin_stats = path.with_name(path.stem + "_stats.json")
+    with chemin_stats.open("w", encoding="utf-8") as fichier:
+        json.dump(stats or {}, fichier, ensure_ascii=False, indent=2)
+    logger.info("Transformation : statistiques écrites dans %s", chemin_stats)
     return path
 
 
@@ -194,16 +235,10 @@ def run_transformation(
 ) -> tuple[Path, dict[str, int]]:
     """Pipeline de transformation complet : lecture -> traitement -> export.
 
-    Renvoie le chemin du dataset transforme et les statistiques de l'execution.
+    Renvoie le chemin du dataset transformé et les statistiques de l'exécution.
     """
     config = config or TransformConfig()
     records = lit_brut(raw_path)
     df, stats = traite(records, config)
-    out = exporte(df, config, output_path)
-
-    # On persiste les statistiques pour le tableau de bord KPI et le monitoring.
-    stats_path = out.with_name(out.stem + "_stats.json")
-    with stats_path.open("w", encoding="utf-8") as handle:
-        json.dump(stats, handle, ensure_ascii=False, indent=2)
-    logger.info("Transformation : statistiques ecrites dans %s", stats_path)
-    return out, stats
+    sortie = exporte(df, config, stats, output_path)
+    return sortie, stats
