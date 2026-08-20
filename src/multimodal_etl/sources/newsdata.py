@@ -25,14 +25,17 @@ def is_enabled() -> bool:
 
 
 def _parse_article(article: dict[str, object]) -> dict[str, object]:
-    """Transforme un article NewsData.io en dictionnaire brut normalise."""
+    """Transforme un article NewsData.io en dictionnaire brut normalisé."""
+    image_url = article.get("image_url") or ""
     return {
         "source": "newsdata",
         "source_type": "api",
+        "access_method": "api_rest",
         "title": article.get("title") or "",
         "text": article.get("description") or article.get("content") or "",
         "url": article.get("link") or "",
-        "image_url": article.get("image_url") or "",
+        "image_url": image_url,
+        "image_source": "native" if image_url else "aucune",
         "published_at": article.get("pubDate") or "",
         "language": article.get("language") or "en",
         # NewsData.io ne fournit pas de label vrai/faux fiable.

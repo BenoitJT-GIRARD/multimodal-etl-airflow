@@ -54,17 +54,20 @@ def extract_image_from_entry(entry: feedparser.FeedParserDict) -> str:
 
 
 def _parse_entry(entry: feedparser.FeedParserDict, source_name: str) -> dict[str, object]:
-    """Transforme une entree feedparser en dictionnaire brut normalise."""
+    """Transforme une entrée feedparser en dictionnaire brut normalisé."""
+    image_url = extract_image_from_entry(entry)
     return {
         "source": f"rss:{source_name}",
         "source_type": "rss",
+        "access_method": "flux_rss",
         "title": entry.get("title", ""),
         "text": entry.get("summary", ""),
         "url": entry.get("link", ""),
-        "image_url": extract_image_from_entry(entry),
+        "image_url": image_url,
+        "image_source": "native" if image_url else "aucune",
         "published_at": entry.get("published", ""),
         "language": "en",
-        # Les flux de presse generaliste ne sont pas labellises vrai/faux.
+        # Les flux de presse généraliste ne sont pas labellisés vrai/faux.
         "label": None,
         "label_source": None,
     }
