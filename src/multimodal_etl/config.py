@@ -19,6 +19,8 @@ DATA_DIR: Path = PROJECT_ROOT / "data"
 RAW_DIR: Path = DATA_DIR / "raw"
 IMAGES_DIR: Path = RAW_DIR / "images"
 PROCESSED_DIR: Path = DATA_DIR / "processed"
+# Une fiche par exécution du pipeline : c'est l'historique lu par le tableau de bord.
+RUNS_DIR: Path = PROCESSED_DIR / "runs"
 SAMPLES_DIR: Path = DATA_DIR / "samples"
 DB_DIR: Path = DATA_DIR / "db"
 LOGS_DIR: Path = PROJECT_ROOT / "logs"
@@ -127,6 +129,7 @@ def ensure_dirs() -> None:
         RAW_DIR,
         IMAGES_DIR,
         PROCESSED_DIR,
+        RUNS_DIR,
         SAMPLES_DIR,
         DB_DIR,
         LOGS_DIR,
