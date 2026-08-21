@@ -23,7 +23,7 @@ from urllib.parse import urlparse
 import requests
 from PIL import Image, UnidentifiedImageError
 
-from multimodal_etl.config import IMAGES_DIR, ImageConfig, ensure_dirs
+from multimodal_etl.config import IMAGES_DIR, ImageConfig, chemin_relatif, ensure_dirs
 from multimodal_etl.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -121,9 +121,10 @@ def telecharge_images(
 ) -> dict[str, int]:
     """Complète chaque publication avec le chemin de son image téléchargée.
 
-    Modifie les dictionnaires sur place en renseignant ``image_path`` (chaîne vide
-    si l'image n'a pas pu être récupérée) et renvoie un compte rendu chiffré, repris
-    par les KPI.
+    Modifie les dictionnaires sur place en renseignant ``image_path`` — un chemin
+    **relatif à la racine du projet**, pour rester valable en local comme dans le
+    conteneur Airflow — ou une chaîne vide si l'image n'a pas pu être récupérée.
+    Renvoie un compte rendu chiffré, repris par les KPI.
     """
     config = config or ImageConfig()
     ensure_dirs()
@@ -151,7 +152,7 @@ def telecharge_images(
             compteurs["echouees"] += 1
             continue
 
-        record["image_path"] = str(chemin)
+        record["image_path"] = chemin_relatif(chemin)
         compteurs["reussies"] += 1
         compteurs["octets"] += chemin.stat().st_size
 

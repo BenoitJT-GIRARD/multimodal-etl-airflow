@@ -29,6 +29,28 @@ LOGS_DIR: Path = PROJECT_ROOT / "logs"
 INTERIM_DIR: Path = DATA_DIR / "interim"
 
 
+def chemin_relatif(chemin: Path) -> str:
+    """Exprime un chemin par rapport à la racine du projet.
+
+    Les chemins stockés dans le jeu de données doivent rester valables ailleurs
+    que sur la machine qui les a produits : le pipeline tourne aussi bien en local
+    que dans le conteneur Airflow, où la racine du projet n'est pas au même
+    endroit. On enregistre donc ``data/raw/images/xxx.jpg`` et jamais un chemin
+    absolu.
+    """
+    try:
+        return chemin.resolve().relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        # Chemin hors du projet : on le garde tel quel plutôt que de le perdre.
+        return chemin.as_posix()
+
+
+def chemin_absolu(chemin: str) -> Path:
+    """Retrouve le fichier réel à partir d'un chemin relatif au projet."""
+    candidat = Path(chemin)
+    return candidat if candidat.is_absolute() else PROJECT_ROOT / candidat
+
+
 def _env_int(name: str, default: int) -> int:
     """Lit une variable d'environnement entière, avec valeur de repli."""
     raw = os.environ.get(name)

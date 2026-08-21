@@ -22,6 +22,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from multimodal_etl.config import chemin_absolu  # noqa: E402
 from multimodal_etl.kpi import (  # noqa: E402
     charge_dernier_dataset,
     compute_kpis,
@@ -259,7 +260,7 @@ def section_apercu(df: pd.DataFrame) -> None:
     apercu = df[df["has_image"]].head(6)
     colonnes_images = st.columns(6)
     for colonne, (_, publication) in zip(colonnes_images, apercu.iterrows(), strict=False):
-        chemin = Path(publication["image_path"])
+        chemin = chemin_absolu(publication["image_path"])
         if chemin.is_file():
             colonne.image(str(chemin), caption=publication["title"][:60], use_container_width=True)
 
