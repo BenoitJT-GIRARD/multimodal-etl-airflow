@@ -26,8 +26,13 @@ x-airflow-common: &airflow-common
       pandas pyarrow pillow sqlalchemy python-dotenv
   volumes:
     - ../dags:/opt/airflow/dags
-    - ./airflow/logs:/opt/airflow/logs
+    # Les journaux Airflow restent dans un volume Docker : les monter sur le disque
+    # hote poserait un probleme de droits d'ecriture (surtout sous Windows).
+    - airflow-logs:/opt/airflow/logs
     - ../:/opt/airflow/project
+  # AIRFLOW_UID : identifiant de l'utilisateur qui ecrit dans le projet monte.
+  # Sous Linux/macOS, mettre la sortie de `id -u`. Sous Windows, 0 (root) evite les
+  # refus d'ecriture sur le dossier data/ partage.
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     postgres:
@@ -86,3 +91,4 @@ services:
 
 volumes:
   postgres-db-volume:
+  airflow-logs:
