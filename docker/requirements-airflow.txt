@@ -1,0 +1,18 @@
+# Dependances d'execution du pipeline, installees dans l'image Airflow.
+#
+# Volontairement sans numeros de version : les versions sont imposees par le
+# fichier de contraintes officiel d'Airflow (cf. Dockerfile). Sans lui, pip
+# remplacerait des bibliotheques dont Airflow depend lui-meme (SQLAlchemy en
+# particulier) et le scheduler ne demarrerait plus.
+#
+# Streamlit et les outils de developpement ne sont pas necessaires cote Airflow.
+requests
+feedparser
+beautifulsoup4
+lxml
+tldextract
+python-dotenv
+pandas
+pyarrow
+pillow
+sqlalchemy
