@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image
 
 from multimodal_etl import images
-from multimodal_etl.config import ImageConfig
+from multimodal_etl.config import PROJECT_ROOT, ImageConfig, chemin_absolu
 
 
 class ReponseFactice:
@@ -88,3 +88,21 @@ def test_telecharge_images_respecte_le_plafond(tmp_path: Path, monkeypatch) -> N
     assert compteurs["reussies"] == 2
     assert compteurs["ignorees"] == 3
     assert [bool(r["image_path"]) for r in records] == [True, True, False, False, False]
+
+
+def test_le_chemin_enregistre_est_relatif_au_projet(tmp_path: Path, monkeypatch) -> None:
+    # Un chemin absolu rendrait le jeu de donnees inutilisable hors de la machine
+    # qui l'a produit (le conteneur Airflow, par exemple).
+    dossier = PROJECT_ROOT / "data" / "raw" / "images"
+    monkeypatch.setattr(images, "IMAGES_DIR", dossier)
+    monkeypatch.setattr(
+        images.requests, "get", lambda *a, **k: ReponseFactice(_png_valide(), "image/png")
+    )
+    record = {"image_url": "https://site.com/relatif.png"}
+
+    images.telecharge_images([record], ImageConfig())
+
+    chemin = str(record["image_path"])
+    assert chemin.startswith("data/raw/images/")
+    assert not Path(chemin).is_absolute()
+    chemin_absolu(chemin).unlink(missing_ok=True)

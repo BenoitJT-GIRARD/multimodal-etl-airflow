@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from multimodal_etl.config import TransformConfig
+from multimodal_etl.config import PROJECT_ROOT, TransformConfig
 from multimodal_etl.schema import genere_id, genere_source_id
 from multimodal_etl.transform import (
     construit_publication,
@@ -49,6 +49,19 @@ def test_valide_image_exige_un_fichier_present(tmp_path: Path) -> None:
     assert valide_image(str(fichier)) is True
     assert valide_image(str(tmp_path / "absent.jpg")) is False
     assert valide_image("") is False
+
+
+def test_valide_image_resout_un_chemin_relatif_au_projet() -> None:
+    # Le jeu de donnees stocke des chemins relatifs : ils doivent etre resolus
+    # depuis la racine du projet, quel que soit le dossier de travail courant.
+    fichier = PROJECT_ROOT / "data" / "raw" / "images" / "test_valide_image.jpg"
+    fichier.parent.mkdir(parents=True, exist_ok=True)
+    fichier.write_bytes(b"contenu")
+    try:
+        assert valide_image("data/raw/images/test_valide_image.jpg") is True
+        assert valide_image("data/raw/images/inexistante.jpg") is False
+    finally:
+        fichier.unlink(missing_ok=True)
 
 
 def test_extrait_domaine() -> None:

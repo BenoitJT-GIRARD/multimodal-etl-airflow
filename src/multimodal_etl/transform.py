@@ -19,7 +19,7 @@ import pandas as pd
 import tldextract
 from bs4 import BeautifulSoup
 
-from multimodal_etl.config import PROCESSED_DIR, TransformConfig, ensure_dirs
+from multimodal_etl.config import PROCESSED_DIR, TransformConfig, chemin_absolu, ensure_dirs
 from multimodal_etl.logging_setup import get_logger
 from multimodal_etl.schema import COLUMNS, Publication, genere_id, genere_source_id
 
@@ -45,11 +45,12 @@ def valide_image(image_path: str) -> bool:
 
     C'est le contrôle qui **garantit l'association texte-image** : l'étape
     d'extraction a déjà téléchargé et validé l'image avec Pillow ; on vérifie ici
-    que le fichier est toujours là au moment de construire le jeu de données.
+    que le fichier est toujours là au moment de construire le jeu de données. Le
+    chemin est relatif à la racine du projet, on le résout donc avant de tester.
     """
     if not image_path:
         return False
-    return Path(image_path).is_file()
+    return chemin_absolu(image_path).is_file()
 
 
 def extrait_domaine(url: str) -> str:
