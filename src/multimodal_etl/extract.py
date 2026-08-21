@@ -66,6 +66,18 @@ def collecte_sources(config: ExtractionConfig | None = None) -> tuple[list[dict]
     return publications, bilan
 
 
+def sources_en_echec(bilan: dict[str, int]) -> int:
+    """Compte les sources réellement en panne, pour l'alerte du plan de monitoring.
+
+    Une source volontairement **désactivée** n'est pas une panne : NewsData.io ne
+    s'active que si une clé d'API est fournie, et son absence ne doit pas déclencher
+    d'alerte. Sans cette distinction, un pipeline en bonne santé passerait à l'orange
+    dès qu'on l'exécute sans clé.
+    """
+    desactivees = set() if newsdata.is_enabled() else {"newsdata"}
+    return sum(1 for nom, nombre in bilan.items() if nombre <= 0 and nom not in desactivees)
+
+
 def extract_all(config: ExtractionConfig | None = None) -> list[dict]:
     """Collecte les publications de toutes les sources, images comprises."""
     publications, _ = collecte_sources(config)
@@ -96,7 +108,7 @@ def run_extraction(config: ExtractionConfig | None = None) -> tuple[Path, dict[s
     compte_rendu: dict[str, object] = {
         "publications_extraites": len(publications),
         "bilan_sources": bilan,
-        "sources_en_echec": sum(1 for valeur in bilan.values() if valeur <= 0),
+        "sources_en_echec": sources_en_echec(bilan),
         "images": compteurs_images,
         "fichier_brut": str(chemin),
     }
