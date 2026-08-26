@@ -258,9 +258,10 @@ reliées par des clés de jointure, et une table à plat prête pour l'entraîne
 | Fakeddit | jeu Kaggle | oui | native | oui | volume multimodal annoté |
 
 Sur une exécution réelle du pipeline : **179 publications collectées** auprès des quatre
-sources, dont **114 retenues** après nettoyage et vérification de l'association
-texte-image, et **116 images téléchargées** pour 3,2 Mo. Les publications écartées le
-sont presque toutes pour une raison unique et attendue : aucune image exploitable.
+sources, dont **134 retenues** après nettoyage et vérification de l'association
+texte-image, et **136 images téléchargées**. Les publications écartées le sont presque
+toutes pour une raison unique et attendue : aucune image exploitable — principalement des
+articles FakeNewsNet dont l'URL, datée de 2016-2018, ne répond plus.
 
 ---
 
