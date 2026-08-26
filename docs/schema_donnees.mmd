@@ -6,30 +6,38 @@ erDiagram
 
     PUBLICATION {
         string id PK "KEY"
+        string source_id FK "KEY"
+        string domain  "METADATA"
+        string url  "METADATA"
         string language  "METADATA"
         datetime published_at  "METADATA"
         datetime ingested_at  "METADATA"
-        bool has_image  "VISION"
-        int text_length  "METADATA"
     }
 
     SOURCE {
+        string source_id PK "KEY"
         string source  "METADATA"
         string source_type  "METADATA"
-        string domain  "METADATA"
-        string url  "METADATA"
+        string access_method  "METADATA"
     }
 
     CONTENU_TEXTE {
+        string id PK "KEY"
         string title  "NLP"
         string text  "NLP"
+        int text_length  "METADATA"
     }
 
     CONTENU_IMAGE {
+        string id PK "KEY"
         string image_url  "VISION"
+        string image_path  "VISION"
+        string image_source  "METADATA"
+        bool has_image  "VISION"
     }
 
     LABEL {
+        string id PK "KEY"
         string label  "TARGET"
         string label_source  "METADATA"
     }
