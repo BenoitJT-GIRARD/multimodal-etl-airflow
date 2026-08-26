@@ -106,8 +106,9 @@ def test_normalise_date_harmonise_les_formats() -> None:
     assert normalise_date("Mon, 29 Jun 2026 10:00:00 GMT").startswith("2026-06-29T10:00:00")
     # Format ISO des API.
     assert normalise_date("2026-06-29 10:00:00").startswith("2026-06-29T10:00:00")
-    # Horodatage Unix de certains jeux de données.
+    # Horodatage Unix de certains jeux de données, entier ou flottant.
     assert normalise_date("1500000000").startswith("2017-07-14")
+    assert normalise_date("1425138660.0").startswith("2015-02-28")
     assert normalise_date("") is None
     assert normalise_date("date illisible") is None
 

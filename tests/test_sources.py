@@ -149,10 +149,15 @@ def test_enrichit_publications_ignore_celles_qui_ont_deja_une_image(monkeypatch)
 # --------------------------------------------------------------------------- #
 # Fakeddit (Kaggle)
 # --------------------------------------------------------------------------- #
-def test_fakeddit_lit_l_echantillon_versionne() -> None:
+def test_fakeddit_lit_l_echantillon_versionne(tmp_path: Path, monkeypatch) -> None:
+    # Le dossier Kaggle est vidé pour que le test ne dépende pas de la présence du
+    # jeu réel sur la machine : c'est bien le repli sur l'échantillon qu'on vérifie.
+    monkeypatch.setattr(kaggle_fakeddit, "DOSSIER_KAGGLE", tmp_path / "vide")
+
     records = kaggle_fakeddit.fetch_fakeddit(ExtractionConfig(max_items_per_source=5))
 
     assert len(records) == 5
+    assert records[0]["source"] == "fakeddit"
     assert records[0]["access_method"] == "telechargement_kaggle"
     assert records[0]["image_url"].startswith("https://upload.wikimedia.org/")
     assert records[0]["label"] in {"real", "fake"}

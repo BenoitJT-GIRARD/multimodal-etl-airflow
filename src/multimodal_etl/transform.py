@@ -26,6 +26,8 @@ from multimodal_etl.schema import COLUMNS, Publication, genere_id, genere_source
 logger = get_logger(__name__)
 
 _ESPACES = re.compile(r"\s+")
+# Un horodatage Unix, entier ou flottant : '1425138660' comme '1425138660.0'.
+_EST_HORODATAGE = re.compile(r"\d{9,11}(\.\d+)?")
 
 
 # --------------------------------------------------------------------------- #
@@ -104,11 +106,12 @@ def normalise_date(date_brute: object) -> str | None:
     if not texte:
         return None
 
-    # Horodatage Unix (Fakeddit expose un champ created_utc numérique).
-    if texte.isdigit():
+    # Horodatage Unix : Fakeddit expose un created_utc numérique, parfois écrit
+    # comme un flottant ('1425138660.0').
+    if _EST_HORODATAGE.fullmatch(texte):
         try:
-            return datetime.fromtimestamp(int(texte), tz=UTC).isoformat(timespec="seconds")
-        except (ValueError, OSError):
+            return datetime.fromtimestamp(float(texte), tz=UTC).isoformat(timespec="seconds")
+        except (ValueError, OSError, OverflowError):
             return None
 
     horodatage = pd.to_datetime(texte, errors="coerce", utc=True, format="mixed")
