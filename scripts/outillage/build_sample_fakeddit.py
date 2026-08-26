@@ -13,7 +13,7 @@ Dès qu'un fichier ``.tsv`` est déposé dans ``data/raw/kaggle/``, le connecteu
 l'utilise à la place de cet échantillon.
 
 Usage :
-    uv run python scripts/build_sample_fakeddit.py
+    uv run python scripts/outillage/build_sample_fakeddit.py
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import csv
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from multimodal_etl.config import SAMPLES_DIR, ensure_dirs

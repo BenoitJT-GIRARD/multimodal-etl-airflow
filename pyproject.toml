@@ -45,6 +45,7 @@ dev = [
     "nbformat>=5.10",
     "nbconvert>=7.16",
     "python-pptx>=1.0",
+    "matplotlib>=3.11.1",
 ]
 
 [build-system]
