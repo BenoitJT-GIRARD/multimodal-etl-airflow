@@ -54,14 +54,14 @@ SEUILS: dict[str, Seuil] = {
         "C'est la définition même du jeu de données : sans image, la publication est inutile.",
     ),
     "taux_images_telechargees_pct": Seuil(
-        "Images réellement téléchargées",
+        "Images téléchargées",
         "haut",
         80,
         60,
         "Mesure la disponibilité des médias : une URL annoncée ne vaut pas un fichier obtenu.",
     ),
     "taux_doublons_pct": Seuil(
-        "Doublons écartés",
+        "Taux de doublons",
         "bas",
         5,
         15,
@@ -75,7 +75,7 @@ SEUILS: dict[str, Seuil] = {
         "Un jeu de données capté par une seule source transmet son biais au modèle.",
     ),
     "age_median_heures": Seuil(
-        "Âge médian des publications",
+        "Âge médian",
         "bas",
         48,
         168,
@@ -89,7 +89,7 @@ SEUILS: dict[str, Seuil] = {
         "Un volume qui s'effondre trahit une source en panne.",
     ),
     "duree_totale_sec": Seuil(
-        "Durée totale du run",
+        "Durée totale",
         "bas",
         90,
         300,

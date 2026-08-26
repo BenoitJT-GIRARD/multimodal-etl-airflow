@@ -22,18 +22,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from multimodal_etl.schema import FIELDS
+from multimodal_etl.schema import ENTITES, champs_de
 
 DOCS_DIR = ROOT / "docs"
 
-# Affectation de chaque champ a une entite conceptuelle (regroupement metier).
-ENTITES: dict[str, list[str]] = {
-    "PUBLICATION": ["id", "language", "published_at", "ingested_at", "has_image", "text_length"],
-    "SOURCE": ["source", "source_type", "domain", "url"],
-    "CONTENU_TEXTE": ["title", "text"],
-    "CONTENU_IMAGE": ["image_url"],
-    "LABEL": ["label", "label_source"],
-}
+# L'affectation des champs aux entites vient directement de multimodal_etl.schema :
+# ajouter un champ au schema le fait apparaitre dans le diagramme sans rien
+# modifier ici.
 
 # Relations conceptuelles (cardinalites Mermaid).
 RELATIONS: tuple[tuple[str, str, str, str], ...] = (
@@ -55,9 +50,22 @@ def _type_mermaid(dtype: str) -> str:
     return correspondance.get(dtype, dtype)
 
 
+def _cle(entite: str, nom: str) -> str:
+    """Indique si un champ est cle primaire ou cle etrangere dans son entite."""
+    if entite == "PUBLICATION" and nom == "id":
+        return "PK"
+    if entite == "PUBLICATION" and nom == "source_id":
+        return "FK"
+    if entite == "SOURCE" and nom == "source_id":
+        return "PK"
+    # Les entites de contenu partagent la cle de la publication qu'elles decrivent.
+    if nom == "id":
+        return "PK"
+    return ""
+
+
 def construit_mermaid() -> str:
     """Construit le texte Mermaid du schema conceptuel."""
-    par_nom = {spec.name: spec for spec in FIELDS}
     lignes = ["erDiagram"]
 
     # Relations.
@@ -66,13 +74,18 @@ def construit_mermaid() -> str:
     lignes.append("")
 
     # Entites et attributs (type + role + cle).
-    for entite, champs in ENTITES.items():
+    for entite in ENTITES:
         lignes.append(f"    {entite} {{")
-        for nom in champs:
-            spec = par_nom[nom]
-            cle = "PK" if spec.role == "KEY" else ""
-            commentaire = spec.role
-            lignes.append(f'        {_type_mermaid(spec.dtype)} {nom} {cle} "{commentaire}"')
+        # La cle de jointure est rappelee sur chaque entite de contenu.
+        if entite in {"CONTENU_TEXTE", "CONTENU_IMAGE", "LABEL"}:
+            lignes.append('        string id PK "KEY"')
+        if entite == "SOURCE":
+            lignes.append('        string source_id PK "KEY"')
+        for spec in champs_de(entite):
+            lignes.append(
+                f"        {_type_mermaid(spec.dtype)} {spec.name} "
+                f'{_cle(entite, spec.name)} "{spec.role}"'
+            )
         lignes.append("    }")
         lignes.append("")
 
