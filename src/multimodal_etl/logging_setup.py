@@ -1,8 +1,6 @@
 """Journalisation centralisée du pipeline.
 
-La mission demande explicitement d'« ajouter des logs » (étape 2) et d'« utiliser
-Logging pour journaliser chaque transformation » (étape 3). On configure donc une
-fois pour toutes le module standard ``logging`` : sortie console + fichier horodaté
+On configure unefois pour toutes le module standard ``logging`` : sortie console + fichier horodaté
 dans ``logs/``. Chaque module récupère son logger via :func:`get_logger`.
 """
 

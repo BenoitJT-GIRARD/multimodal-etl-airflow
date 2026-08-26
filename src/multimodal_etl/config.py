@@ -3,7 +3,7 @@
 Tous les chemins et les paramètres ajustables sont regroupés ici sous forme de
 dataclasses ``frozen`` (immuables). Les scripts, notebooks et le DAG Airflow
 importent ces objets plutôt que de coder en dur des constantes : c'est ce qui
-rend le pipeline **reproductible** et **paramétrable** (cf. fiche d'autoévaluation).
+rend le pipeline **reproductible** et **paramétrable**
 """
 
 from __future__ import annotations

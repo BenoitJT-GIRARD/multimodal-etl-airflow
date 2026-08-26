@@ -1,14 +1,14 @@
 """Indicateurs de performance (KPI) du pipeline ETL.
 
-Ce module calcule les indicateurs demandés à l'étape 5 — **précision** des données,
+Ce module calcule les indicateurs — **précision** des données,
 **rapidité** et **coût** — et les complète par ce que le cas d'usage rend
 réellement critique : la disponibilité effective des images, la fraîcheur du jeu de
 données, sa diversité de sources et l'apport réel de chaque exécution.
 
 Chaque indicateur est là parce qu'il déclenche une action s'il dérive ; le tableau
-de bord les affiche et le plan de monitoring fixe les
-seuils. Ces seuils sont définis **une seule fois**, ici, dans :data:`SEUILS` : le
-document et l'application ne peuvent donc pas se contredire.
+de bord les affiche et le plan de monitoring fixe les seuils. Ces seuils sont définis
+**une seule fois**, ici, dans :data:`SEUILS` : le document et l'application ne peuvent
+donc pas se contredire.
 
 Les fonctions de calcul sont pures — données en entrée, dictionnaire en sortie —
 ce qui les rend simples à tester et à afficher.

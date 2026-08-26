@@ -68,6 +68,7 @@ infos/
 
 # --- Notes de travail personnelles ---
 /REPRISE.md
+/MEMO.md
 
 # --- Securite ---
 secrets.toml
