@@ -41,7 +41,7 @@ tableau de bord. Aucun n'est décoratif : chacun déclenche une action s'il dér
 
 | Indicateur | Normal | Avertissement | Critique |
 |---|---|---|---|
-| Taux de validité | ≥ 85 % | 70 – 85 % | < 70 % |
+| Taux de validité | ≥ 60 % | 45 – 60 % | < 45 % |
 | Association texte-image | ≥ 90 % | 75 – 90 % | < 75 % |
 | Images téléchargées | ≥ 80 % | 60 – 80 % | < 60 % |
 | Volume ingéré | ≥ 80 | 40 – 80 | < 40 |
@@ -55,6 +55,13 @@ tableau de bord. Aucun n'est décoratif : chacun déclenche une action s'il dér
 > seule fois**, dans le dictionnaire `SEUILS` de `src/multimodal_etl/kpi.py`, avec la
 > justification de chacun. Le tableau de bord les lit au même endroit — le document et
 > l'application ne peuvent donc pas se contredire.
+
+Un mot sur le **taux de validité**, dont le seuil peut surprendre : il tourne autour de
+65 %, et c'est son fonctionnement normal. Le rejet vient presque toujours d'une image
+indisponible — les URL de FakeNewsNet datent de 2016-2018 et une bonne partie ne répond
+plus. Un seuil placé à 85 % aurait mis l'indicateur au rouge en permanence, et un
+indicateur toujours rouge n'est plus lu par personne. Il est donc calé sur le
+comportement mesuré, ce qui lui permet de signaler une vraie rupture.
 
 Un franchissement **orange** produit un log `WARNING` et une notification non bloquante.
 Un franchissement **rouge** produit un log `ERROR` et une alerte immédiate ; selon

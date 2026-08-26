@@ -106,7 +106,10 @@ class ImageConfig:
     """Paramètres du téléchargement des images (volet « vision » du multimodal)."""
 
     # Nombre maximum d'images téléchargées par exécution (maîtrise du temps et du disque).
-    max_images: int = field(default_factory=lambda: _env_int("MULTIMODAL_ETL_MAX_IMAGES", 120))
+    # Le plafond doit rester au-dessus du volume collecté (environ 180 publications avec
+    # les réglages par défaut) : sinon les dernières sources traitées n'obtiennent aucune
+    # image et disparaissent du jeu de données.
+    max_images: int = field(default_factory=lambda: _env_int("MULTIMODAL_ETL_MAX_IMAGES", 250))
     # Délai d'attente (secondes) d'un téléchargement d'image.
     request_timeout: int = field(default_factory=lambda: _env_int("MULTIMODAL_ETL_REQUEST_TIMEOUT", 15))
     # Taille maximale acceptée pour un fichier image (Mo).

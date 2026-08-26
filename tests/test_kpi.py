@@ -120,8 +120,8 @@ def test_kpis_performance_sans_execution() -> None:
 # --------------------------------------------------------------------------- #
 def test_statut_sur_un_indicateur_a_maximiser() -> None:
     assert statut("taux_validite_pct", 92) == "vert"
-    assert statut("taux_validite_pct", 78) == "orange"
-    assert statut("taux_validite_pct", 40) == "rouge"
+    assert statut("taux_validite_pct", 50) == "orange"
+    assert statut("taux_validite_pct", 30) == "rouge"
 
 
 def test_statut_sur_un_indicateur_a_minimiser() -> None:
