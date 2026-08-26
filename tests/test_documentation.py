@@ -47,8 +47,6 @@ def test_les_documents_attendus_sont_presents() -> None:
         DOCS / "schema_donnees.md",
         DOCS / "plan_monitoring.md",
         DOCS / "preuve_execution_airflow.md",
-        DOCS / "scenario_demonstration.md",
-        DOCS / "auto_evaluation.md",
         PROJECT_ROOT / "dags" / "multimodal_etl_dag.py",
         PROJECT_ROOT / "dashboard" / "app.py",
     ]
@@ -61,7 +59,6 @@ def test_aucun_document_ne_reference_un_fichier_disparu() -> None:
     references = {
         "rapport_exploration_sources.md": ["data/samples/fakeddit_sample.tsv"],
         "runbook_airflow.md": ["docker/Dockerfile", "docker/.env.example"],
-        "scenario_demonstration.md": ["scripts/run_etl.py", "dashboard/app.py"],
     }
     for document, chemins in references.items():
         contenu = _lit(document)

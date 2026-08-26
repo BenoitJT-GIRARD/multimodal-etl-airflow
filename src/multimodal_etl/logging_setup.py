@@ -1,7 +1,8 @@
 """Journalisation centralisée du pipeline.
 
-On configure unefois pour toutes le module standard ``logging`` : sortie console + fichier horodaté
-dans ``logs/``. Chaque module récupère son logger via :func:`get_logger`.
+On configure une fois pour toutes le module standard ``logging`` : sortie console
++ fichier horodaté dans ``logs/``. Chaque module récupère son logger via
+:func:`get_logger`.
 """
 
 from __future__ import annotations

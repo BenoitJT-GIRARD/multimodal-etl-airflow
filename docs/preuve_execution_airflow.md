@@ -140,7 +140,7 @@ s'enrichit au fil des exécutions quotidiennes, sans doublon et sans écraser l'
 ## 5. Captures d'écran de l'interface
 
 Prises sur une exécution déclenchée depuis l'interface et exécutée par l'ordonnanceur —
-`reports/figures/airflow/`.
+`reports/Girard_Benoit_12_202600820/Girard_Benoit_5_flux_etl_airflow_captures_082026/`.
 
 | Capture | Ce qu'elle montre |
 |---|---|
