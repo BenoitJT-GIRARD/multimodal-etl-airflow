@@ -139,5 +139,13 @@ s'enrichit au fil des exécutions quotidiennes, sans doublon et sans écraser l'
 
 ## 5. Captures d'écran de l'interface
 
-Les captures de la vue *Graph*, de la vue *Grid* et du log de la tâche `chargement` sont
-à joindre depuis <http://localhost:8080> — voir le §5 du runbook.
+Prises sur une exécution déclenchée depuis l'interface et exécutée par l'ordonnanceur —
+`reports/figures/airflow/`.
+
+| Capture | Ce qu'elle montre |
+|---|---|
+| `01_liste_dags.png` | Le DAG `multimodal_etl` actif, planifié `@daily`, avec ses exécutions récentes en succès. |
+| `02_vue_grid.png` | La vue *Grid* : quatre exécutions, cinq tâches vertes chacune, et le détail de la dernière (`success`, 1 min 23 s). |
+| `03_vue_graph.png` | La vue *Graph* : les cinq `PythonOperator` enchaînés, tous en `success`. |
+| `04_log_chargement.png` | Le log de la tâche `chargement` : les six tables peuplées, et `16 nouvelles publications, 120 déjà présentes` — le chargement incrémental à l'œuvre. |
+| `05_code_dag.png` | Le code du DAG tel qu'Airflow l'a chargé. |

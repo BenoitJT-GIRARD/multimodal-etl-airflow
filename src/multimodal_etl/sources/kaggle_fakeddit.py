@@ -63,7 +63,10 @@ def _construit_record(ligne: dict[str, str]) -> dict[str, object]:
     titre = ligne.get("clean_title") or ligne.get("title") or ""
     image_url = ligne.get("image_url", "").strip()
     return {
-        "source": f"fakeddit:{ligne.get('subreddit', 'reddit')}",
+        # Fakeddit est une seule source, quel que soit le sous-forum d'origine :
+        # découper par subreddit fragmenterait les répartitions en une quinzaine
+        # de lignes sans intérêt pour le suivi.
+        "source": "fakeddit",
         "source_type": "dataset",
         "access_method": "telechargement_kaggle",
         "title": titre,
@@ -77,7 +80,7 @@ def _construit_record(ligne: dict[str, str]) -> dict[str, object]:
         "published_at": ligne.get("created_utc", ""),
         "language": "en",
         "label": _LABELS.get(ligne.get("2_way_label", "").strip(), "unverified"),
-        "label_source": "fakeddit:reddit",
+        "label_source": "fakeddit",
     }
 
 

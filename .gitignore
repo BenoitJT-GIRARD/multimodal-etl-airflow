@@ -63,15 +63,13 @@ docker/airflow/logs/
 docker/airflow/plugins/
 docker/.env
 
-# --- Outils de l'editeur ---
-
 # --- Documentation source fournie ---
 infos/
+
+# --- Notes de travail personnelles ---
+/REPRISE.md
 
 # --- Securite ---
 secrets.toml
 *.pem
 *.key
-
-# --- Archive de recuperation de l'historique git (one-shot) ---
-multimodal_etl_history.bundle

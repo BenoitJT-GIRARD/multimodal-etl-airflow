@@ -177,16 +177,26 @@ pas, on procède comme en entreprise : **le fichier est téléchargé une fois, 
 et déposé dans `data/raw/kaggle/`. Le connecteur se contente de le lire.
 
 > **Procédure de récupération**
-> 1. Ouvrir <https://www.kaggle.com/datasets/vanshikavmittal/fakeddit-dataset> (ou le
->    dépôt officiel <https://github.com/entitize/Fakeddit>).
-> 2. Télécharger un fichier `*.tsv` du dossier `multimodal_only_samples`.
-> 3. Le déposer dans `data/raw/kaggle/`.
+> 1. Récupérer un fichier `*.tsv` du dossier `multimodal_only_samples`, au choix sur
+>    <https://www.kaggle.com/datasets/vanshikavmittal/fakeddit-dataset> (compte requis)
+>    ou dans la distribution des auteurs, liée depuis
+>    <https://github.com/entitize/Fakeddit>.
+> 2. Le déposer dans `data/raw/kaggle/`.
 >
-> En l'absence de ce fichier, le connecteur bascule sur un **échantillon de
-> démonstration versionné** (`data/samples/fakeddit_sample.tsv`) : mêmes colonnes et même
-> codage des labels que le jeu réel, titres fabriqués, et images libres de droits
-> hébergées par Wikimedia Commons. Le pipeline reste ainsi exécutable immédiatement, et
-> bascule tout seul sur les données réelles dès qu'elles sont présentes.
+> Le fichier utilisé ici est `multimodal_test_public.tsv` (15,6 Mo, 16 colonnes) : il
+> apporte 29 publications multimodales labellisées issues d'une quinzaine de sous-forums.
+> Il n'est pas versionné — `data/` est ignoré par git — et doit donc être re-téléchargé
+> sur une autre machine.
+>
+> En son absence, le connecteur bascule sur un **échantillon de démonstration versionné**
+> (`data/samples/fakeddit_sample.tsv`) : mêmes colonnes et même codage des labels que le
+> jeu réel, titres fabriqués, et images libres de droits hébergées par Wikimedia Commons.
+> Le pipeline reste ainsi exécutable immédiatement par n'importe qui, et repasse tout seul
+> sur les données réelles dès qu'elles sont présentes.
+>
+> Un détail traité au passage : Fakeddit encode `created_utc` comme un flottant
+> (`1425138660.0`) là où d'autres sources emploient un entier. Sans quoi la date était
+> perdue, et avec elle le calcul de fraîcheur.
 
 ---
 
@@ -257,11 +267,16 @@ reliées par des clés de jointure, et une table à plat prête pour l'entraîne
 | FakeNewsNet | dépôt GitHub | oui | via Open Graph | oui | vérité terrain académique |
 | Fakeddit | jeu Kaggle | oui | native | oui | volume multimodal annoté |
 
-Sur une exécution réelle du pipeline : **179 publications collectées** auprès des quatre
-sources, dont **134 retenues** après nettoyage et vérification de l'association
-texte-image, et **136 images téléchargées**. Les publications écartées le sont presque
-toutes pour une raison unique et attendue : aucune image exploitable — principalement des
-articles FakeNewsNet dont l'URL, datée de 2016-2018, ne répond plus.
+Sur une exécution réelle du pipeline : **205 publications collectées** auprès des quatre
+sources, dont **143 retenues** après nettoyage et vérification de l'association
+texte-image, et **97 % des images demandées effectivement obtenues**. Les publications
+écartées le sont presque toutes pour une raison unique et attendue : aucune image
+exploitable — principalement des articles FakeNewsNet dont l'URL, datée de 2016-2018, ne
+répond plus.
+
+Répartition par méthode d'accès : 97 publications par flux RSS, 29 par le jeu Kaggle,
+10 par l'API et 7 par le dépôt GitHub. Le déséquilibre est assumé : les flux fournissent
+le volume quotidien, les jeux de données apportent les labels.
 
 ---
 
