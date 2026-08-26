@@ -12,6 +12,7 @@ from multimodal_etl.transform import (
     nettoie_texte,
     normalise_date,
     normalise_label,
+    normalise_langue,
     valide_image,
 )
 
@@ -88,6 +89,16 @@ def test_normalise_label() -> None:
     assert normalise_label("FAKE") == "fake"
     assert normalise_label("") is None
     assert normalise_label("controverse") == "unverified"
+
+
+def test_normalise_langue_ramene_au_code_iso() -> None:
+    # NewsData.io renvoie "english" là où les flux RSS déclarent "en".
+    assert normalise_langue("english") == "en"
+    assert normalise_langue("EN") == "en"
+    assert normalise_langue("en-GB") == "en"
+    assert normalise_langue("fr_FR") == "fr"
+    assert normalise_langue("") == "en"
+    assert normalise_langue(None) == "en"
 
 
 def test_normalise_date_harmonise_les_formats() -> None:

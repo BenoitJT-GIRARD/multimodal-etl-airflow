@@ -84,7 +84,9 @@ ignore = [
 "tests/*" = ["S101"]
 "scripts/*" = ["T201", "E402"]
 "dags/*" = ["E402"]
-"notebooks/**/*.ipynb" = ["E402", "F401"]
+# Dans un notebook, la premiere cellule ajoute src/ au chemin d'import : les imports
+# qui suivent viennent donc apres du code, et sont repartis entre plusieurs cellules.
+"notebooks/**/*.ipynb" = ["E402", "F401", "I001"]
 
 [tool.ruff.format]
 quote-style = "double"

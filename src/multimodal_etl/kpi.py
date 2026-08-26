@@ -42,9 +42,11 @@ SEUILS: dict[str, Seuil] = {
     "taux_validite_pct": Seuil(
         "Taux de validité",
         "haut",
-        85,
-        70,
-        "Sous 70 %, une source a changé de format ou renvoie des contenus inexploitables.",
+        60,
+        45,
+        "Calé sur le comportement observé (environ 65 %) : le rejet vient presque toujours "
+        "d'une image indisponible, ce qui est normal. Sous 45 %, c'est une source qui a "
+        "changé de format.",
     ),
     "taux_association_texte_image_pct": Seuil(
         "Association texte-image",

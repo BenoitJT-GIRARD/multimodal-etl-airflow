@@ -73,6 +73,24 @@ def normalise_label(label: object) -> str | None:
     return "unverified"
 
 
+def normalise_langue(langue: object) -> str:
+    """Ramène une langue au code ISO 639-1 sur deux lettres.
+
+    Les sources ne s'accordent pas : le RSS déclare ``en``, NewsData.io renvoie
+    ``english``, d'autres emploient ``en-GB``. Sans harmonisation, un filtre par
+    langue laisserait passer la moitié des publications anglophones.
+    """
+    valeur = str(langue or "").strip().lower()
+    if not valeur:
+        return "en"
+
+    noms = {"english": "en", "french": "fr", "francais": "fr", "spanish": "es", "german": "de"}
+    if valeur in noms:
+        return noms[valeur]
+    # Variantes régionales : 'en-gb' et 'en_us' désignent la même langue.
+    return valeur.replace("_", "-").split("-")[0][:2]
+
+
 def normalise_date(date_brute: object) -> str | None:
     """Convertit une date de publication en chaîne ISO 8601, ou None si illisible.
 
@@ -142,7 +160,7 @@ def construit_publication(
         image_source=str(brut.get("image_source", "aucune")) if a_une_image else "aucune",
         has_image=a_une_image,
         url=url,
-        language=str(brut.get("language", "en")),
+        language=normalise_langue(brut.get("language")),
         ingested_at=ingere_le,
         published_at=normalise_date(brut.get("published_at")),
         label=normalise_label(brut.get("label")),
