@@ -1,8 +1,8 @@
-"""Test de fumée du tableau de bord.
+"""Smoke test of the dashboard.
 
-Le tableau de bord est une surface publique : il doit s'ouvrir sans erreur. Streamlit fournit
-un utilitaire qui exécute l'application sans navigateur et remonte les exceptions —
-c'est le moyen le plus simple de vérifier que la page se construit vraiment.
+The dashboard is a public surface: it has to open without error. Streamlit ships a helper
+that runs the application without a browser and reports the exceptions — the simplest way
+to check the page really builds.
 """
 
 from __future__ import annotations
@@ -30,14 +30,14 @@ def test_the_dashboard_builds_without_error() -> None:
 
 def test_the_dashboard_renders_its_sections() -> None:
     if not list((PROJECT_ROOT / "data" / "processed").glob("publications_*_stats.json")):
-        pytest.skip("aucun jeu de données produit : lancer scripts/run_etl.py d'abord")
+        pytest.skip("no dataset produced: run scripts/run_etl.py first")
 
     application = _run()
-    titres = [element.value for element in application.subheader]
+    titles = [element.value for element in application.subheader]
 
-    assert "État du pipeline" in titres
-    assert "Qualité des données" in titres
-    # Les cartes KPI sont bien présentes (qualité, volume, performance).
+    assert "Pipeline status" in titles
+    assert "Data quality" in titles
+    # The KPI cards are present (quality, volume, performance).
     assert len(application.metric) >= 12
 
 

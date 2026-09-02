@@ -28,7 +28,7 @@ et les sources qui en fournissent une sont un bonus, pas un critère de sélecti
 | `domain` | fiabilité | le domaine de l'éditeur est un signal en soi |
 | `label` | cible | quand la source en fournit une |
 
-Le schéma complet figure dans `schema_donnees.md`.
+Le schéma complet figure dans `data_schema.md`.
 
 ---
 

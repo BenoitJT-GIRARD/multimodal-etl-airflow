@@ -23,13 +23,13 @@ def _read(nom: str) -> str:
 
 
 def test_the_data_dictionary_covers_the_whole_schema() -> None:
-    dictionnaire = _read("schema_donnees.md")
+    dictionnaire = _read("data_schema.md")
     manquants = [champ for champ in COLUMNS if f"`{champ}`" not in dictionnaire]
     assert not manquants, f"champs absents du dictionnaire : {manquants}"
 
 
 def test_the_diagram_covers_the_whole_schema() -> None:
-    diagramme = _read("schema_donnees.mmd")
+    diagramme = _read("data_schema.mmd")
     manquants = [champ for champ in COLUMNS if champ not in diagramme]
     assert not manquants, f"champs absents du diagramme : {manquants}"
 
@@ -43,8 +43,8 @@ def test_the_monitoring_plan_documents_every_threshold() -> None:
 def test_the_documents_the_readme_points_at_all_exist() -> None:
     attendus = [
         DOCS / "rapport_exploration_sources.md",
-        DOCS / "schema_donnees.mmd",
-        DOCS / "schema_donnees.md",
+        DOCS / "data_schema.mmd",
+        DOCS / "data_schema.md",
         DOCS / "monitoring_plan.md",
         DOCS / "preuve_execution_airflow.md",
         PROJECT_ROOT / "dags" / "multimodal_etl_dag.py",

@@ -1,14 +1,14 @@
-"""Genere le schema conceptuel des donnees.
+"""Generate the conceptual data schema.
 
-Le diagramme est construit a partir de :data:`multimodal_etl.schema.FIELDS` (source
-unique de verite) : code, documentation et schema restent ainsi toujours alignes.
-On produit un fichier Mermaid ``docs/schema_donnees.mmd`` puis, si l'outil
-``mmdc`` (mermaid-cli, via npx) est disponible, ses rendus PNG et PDF.
+The diagram is built from :data:`multimodal_etl.schema.FIELDS` (the single source of
+truth), so code, documentation and schema always stay aligned. It produces a Mermaid file
+``docs/data_schema.mmd`` then, when ``mmdc`` (mermaid-cli, through npx) is available, its
+PNG and PDF renderings.
 
-Le modele est **conceptuel** (entites / relations metier), pas physique : il
-explicite le role de chaque champ et garantit visuellement le lien texte-image.
+The model is **conceptual** — business entities and relations, not physical storage. It
+makes the role of every field explicit and shows the text-image link visually.
 
-Usage :
+Usage:
     uv run python scripts/build_schema_diagram.py
 """
 
@@ -26,11 +26,10 @@ from multimodal_etl.schema import ENTITIES, fields_of
 
 DOCS_DIR = ROOT / "docs"
 
-# L'affectation des champs aux entites vient directement de multimodal_etl.schema :
-# ajouter un champ au schema le fait apparaitre dans le diagramme sans rien
-# modifier ici.
+# Which field belongs to which entity comes straight from multimodal_etl.schema: adding a
+# field to the schema makes it appear in the diagram without touching anything here.
 
-# Relations conceptuelles (cardinalites Mermaid).
+# Conceptual relations (Mermaid cardinalities).
 RELATIONS: tuple[tuple[str, str, str, str], ...] = (
     ("SOURCE", "||--o{", "PUBLICATION", "publie"),
     ("PUBLICATION", "||--||", "CONTENU_TEXTE", "porte"),
@@ -40,81 +39,79 @@ RELATIONS: tuple[tuple[str, str, str, str], ...] = (
 
 
 def _mermaid_type(dtype: str) -> str:
-    """Traduit un type logique en type lisible pour le diagramme."""
-    correspondance = {
+    """Translate a logical type into one the diagram can display."""
+    mapping = {
         "string": "string",
         "integer": "int",
         "boolean": "bool",
         "datetime": "datetime",
     }
-    return correspondance.get(dtype, dtype)
+    return mapping.get(dtype, dtype)
 
 
-def _key(entity: str, nom: str) -> str:
-    """Indique si un champ est cle primaire ou cle etrangere dans son entity."""
-    if entity == "PUBLICATION" and nom == "id":
+def _key(entity: str, name: str) -> str:
+    """Say whether a field is a primary or a foreign key within its entity."""
+    if entity == "PUBLICATION" and name == "id":
         return "PK"
-    if entity == "PUBLICATION" and nom == "source_id":
+    if entity == "PUBLICATION" and name == "source_id":
         return "FK"
-    if entity == "SOURCE" and nom == "source_id":
+    if entity == "SOURCE" and name == "source_id":
         return "PK"
-    # Les entites de contenu partagent la cle de la publication qu'elles decrivent.
-    if nom == "id":
+    # The content entities share the key of the publication they describe.
+    if name == "id":
         return "PK"
     return ""
 
 
 def build_mermaid() -> str:
-    """Construit le texte Mermaid du schema conceptuel."""
-    lignes = ["erDiagram"]
+    """Build the Mermaid text of the conceptual schema."""
+    lines = ["erDiagram"]
 
     # Relations.
-    for gauche, cardinalite, droite, libelle in RELATIONS:
-        lignes.append(f"    {gauche} {cardinalite} {droite} : {libelle}")
-    lignes.append("")
+    for left, cardinality, right, label in RELATIONS:
+        lines.append(f"    {left} {cardinality} {right} : {label}")
+    lines.append("")
 
-    # Entites et attributs (type + role + cle).
+    # Entities and attributes (type + role + key).
     for entity in ENTITIES:
-        lignes.append(f"    {entity} {{")
-        # La cle de jointure est rappelee sur chaque entity de contenu.
+        lines.append(f"    {entity} {{")
+        # The join key is repeated on each content entity.
         if entity in {"CONTENU_TEXTE", "CONTENU_IMAGE", "LABEL"}:
-            lignes.append('        string id PK "KEY"')
+            lines.append('        string id PK "KEY"')
         if entity == "SOURCE":
-            lignes.append('        string source_id PK "KEY"')
+            lines.append('        string source_id PK "KEY"')
         for spec in fields_of(entity):
-            lignes.append(
+            lines.append(
                 f"        {_mermaid_type(spec.dtype)} {spec.name} "
                 f'{_key(entity, spec.name)} "{spec.role}"'
             )
-        lignes.append("    }")
-        lignes.append("")
+        lines.append("    }")
+        lines.append("")
 
-    return "\n".join(lignes).rstrip() + "\n"
+    return "\n".join(lines).rstrip() + "\n"
 
 
-def render_diagram(mmd_path: Path) -> None:
-    """Rend le .mmd en PNG et PDF via mmdc si l'outil est disponible."""
+def render(mmd_path: Path) -> None:
+    """Render the .mmd as PNG and PDF through mmdc, when the tool is available."""
     mmdc = shutil.which("mmdc") or shutil.which("mmdc.cmd")
     npx = shutil.which("npx") or shutil.which("npx.cmd")
     if mmdc:
-        commande_base = [mmdc]
+        base_command = [mmdc]
     elif npx:
-        commande_base = [npx, "-y", "@mermaid-js/mermaid-cli"]
+        base_command = [npx, "-y", "@mermaid-js/mermaid-cli"]
     else:
-        print(
-            "[warn] ni mmdc ni npx disponibles : render_diagram ignore, le .mmd reste exploitable."
-        )
+        print("[warn] neither mmdc nor npx available: rendering skipped, the .mmd still stands.")
         return
     for extension in ("png", "pdf"):
-        sortie = mmd_path.with_suffix(f".{extension}")
+        output = mmd_path.with_suffix(f".{extension}")
         try:
             subprocess.run(
                 [
-                    *commande_base,
+                    *base_command,
                     "-i",
                     str(mmd_path),
                     "-o",
-                    str(sortie),
+                    str(output),
                     "-b",
                     "white",
                     "-t",
@@ -124,18 +121,18 @@ def render_diagram(mmd_path: Path) -> None:
                 capture_output=True,
                 text=True,
             )
-            print(f"[ok] rendu genere : {sortie.name}")
+            print(f"[ok] rendering written: {output.name}")
         except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-            print(f"[warn] rendu {extension} non genere ({exc}). Le .mmd reste exploitable.")
+            print(f"[warn] {extension} rendering failed ({exc}). The .mmd still stands.")
 
 
 def main() -> None:
-    """Genere le .mmd puis ses rendus."""
+    """Generate the .mmd, then its renderings."""
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
-    mmd_path = DOCS_DIR / "schema_donnees.mmd"
+    mmd_path = DOCS_DIR / "data_schema.mmd"
     mmd_path.write_text(build_mermaid(), encoding="utf-8")
-    print(f"[ok] schema Mermaid ecrit : {mmd_path}")
-    render_diagram(mmd_path)
+    print(f"[ok] Mermaid schema written: {mmd_path}")
+    render(mmd_path)
 
 
 if __name__ == "__main__":
