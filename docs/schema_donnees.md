@@ -1,6 +1,6 @@
 # Schéma de données finalisé
 
-Modèle conceptuel du jeu de données multimodal.
+modèle conceptuel du jeu de données multimodal.
 
 Ce document décrit le **modèle conceptuel** : les entités, ce que chaque champ signifie
 et à quoi il sert dans le cas d'usage IA. Il est indépendant de la technologie de

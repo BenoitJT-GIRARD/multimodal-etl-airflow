@@ -1,6 +1,6 @@
 # Plan de monitoring du pipeline ETL
 
-Stratégie de surveillance du pipeline en production.
+stratégie de surveillance du pipeline en production.
 
 Ce plan décrit comment on surveille le pipeline d'extraction multimodale : quels
 indicateurs, à partir de quels seuils on s'inquiète, que fait le pipeline quand ça se

@@ -1,5 +1,6 @@
 # Multimodal ETL — extraction de données multimodales pour la détection de fake news
 
+
 Ingénieur data junior chez **Multimodal ETL**, start-up qui développe des outils de détection
 de désinformation. Objectif : construire un **pipeline ETL automatisé** qui récupère des
 publications **multimodales (texte + image)** depuis plusieurs sources, les transforme en

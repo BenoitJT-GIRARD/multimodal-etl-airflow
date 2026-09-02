@@ -1,6 +1,6 @@
 """Test de fumée du tableau de bord.
 
-Le tableau de bord doit s'ouvrir sans erreur. Streamlit fournit
+Le tableau de bord est une surface publique : il doit s'ouvrir sans erreur. Streamlit fournit
 un utilitaire qui exécute l'application sans navigateur et remonte les exceptions —
 c'est le moyen le plus simple de vérifier que la page se construit vraiment.
 """

@@ -2,6 +2,8 @@
 
 **Projet :** Multimodal ETL — extraction de données multimodales pour un détecteur de fake news
 **Auteur :** Benoit Girard — ingénieur data junior
+étape 1 de la mission
+
 ---
 
 ## 1. Ce que le pipeline doit produire

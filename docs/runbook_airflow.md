@@ -1,7 +1,7 @@
 # Runbook — exécuter le DAG `multimodal_etl` avec Airflow
 
 Ce guide décrit pas à pas comment lancer l'orchestration en local avec Apache Airflow, et
-comment produire les preuves d'exécution du DAG.
+comment produire les journaux d'exécution du DAG.
 
 Le DAG réutilise exactement les fonctions du package `multimodal_etl` : la logique métier est
 déjà couverte par les tests unitaires et par `scripts/run_etl.py`. Airflow n'ajoute que
@@ -63,7 +63,7 @@ La première commande doit afficher `multimodal_etl`, la seconde ne rien renvoye
 3. Ouvrir la vue **Graph** : les cinq tâches s'enchaînent
    `extraction → transformation → chargement → metriques → nettoyage` et passent au vert.
 
-Captures d'écran à produire :
+Captures d'écran utiles :
 
 - la vue **Graph** avec les cinq tâches en succès ;
 - la vue **Grid** montrant une exécution complète ;
