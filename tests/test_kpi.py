@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from multimodal_etl.kpi import (
-    SEUILS,
+    THRESHOLDS,
     compute_kpis,
     evaluate_thresholds,
     freshness_kpis,
@@ -84,7 +84,7 @@ def test_volume_kpis_measure_the_concentration() -> None:
 # --------------------------------------------------------------------------- #
 def test_freshness_kpis_compute_a_median_age() -> None:
     reference = datetime(2026, 8, 20, 20, 0, tzinfo=UTC)
-    fraicheur = freshness_kpis(_sample_df(), maintenant=reference)
+    fraicheur = freshness_kpis(_sample_df(), now=reference)
 
     # Âges : 12 h, 36 h et 250 h -> médiane à 36 h ; la publication sans date est ignorée.
     assert fraicheur["age_median_heures"] == 36.0
@@ -135,15 +135,13 @@ def test_evaluate_thresholds_covers_the_monitored_indicators() -> None:
     evaluations = evaluate_thresholds(kpis)
 
     indicateurs = {evaluation["indicateur"] for evaluation in evaluations}
-    assert indicateurs == set(SEUILS)
-    assert all(
-        evaluation["statut"] in {"vert", "orange", "rouge"} for evaluation in evaluations
-    )
+    assert indicateurs == set(THRESHOLDS)
+    assert all(evaluation["statut"] in {"vert", "orange", "rouge"} for evaluation in evaluations)
 
 
 def test_every_threshold_is_justified() -> None:
     # Un seuil sans justification ne peut pas être défendu devant l'équipe.
-    for nom, seuil in SEUILS.items():
+    for nom, seuil in THRESHOLDS.items():
         assert seuil.justification, f"seuil sans justification : {nom}"
         assert seuil.sens in {"haut", "bas"}
 

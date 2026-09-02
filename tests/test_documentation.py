@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from multimodal_etl.config import PROJECT_ROOT
-from multimodal_etl.kpi import SEUILS
+from multimodal_etl.kpi import THRESHOLDS
 from multimodal_etl.schema import COLUMNS
 
 DOCS = PROJECT_ROOT / "docs"
@@ -35,8 +35,8 @@ def test_the_diagram_covers_the_whole_schema() -> None:
 
 
 def test_the_monitoring_plan_documents_every_threshold() -> None:
-    plan = _read("plan_monitoring.md")
-    manquants = [seuil.libelle for seuil in SEUILS.values() if seuil.libelle not in plan]
+    plan = _read("monitoring_plan.md")
+    manquants = [seuil.libelle for seuil in THRESHOLDS.values() if seuil.libelle not in plan]
     assert not manquants, f"seuils absents du plan de monitoring : {manquants}"
 
 
@@ -45,7 +45,7 @@ def test_the_documents_the_readme_points_at_all_exist() -> None:
         DOCS / "rapport_exploration_sources.md",
         DOCS / "schema_donnees.mmd",
         DOCS / "schema_donnees.md",
-        DOCS / "plan_monitoring.md",
+        DOCS / "monitoring_plan.md",
         DOCS / "preuve_execution_airflow.md",
         PROJECT_ROOT / "dags" / "multimodal_etl_dag.py",
         PROJECT_ROOT / "dashboard" / "app.py",
