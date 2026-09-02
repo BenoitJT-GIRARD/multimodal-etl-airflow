@@ -1,4 +1,4 @@
-"""Tests unitaires du calcul des KPI."""
+"""Unit tests of the KPI computation."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def test_volume_kpis_measure_the_concentration() -> None:
 
     assert volume["nb_publications"] == 4
     assert volume["nb_sources"] == 3
-    # Deux publications sur quatre viennent de la même source.
+    # Two publications out of four come from the same source.
     assert volume["part_source_dominante_pct"] == 50.0
     assert volume["repartition_methodes_acces"]["flux_rss"] == 2
 
@@ -86,7 +86,7 @@ def test_freshness_kpis_compute_a_median_age() -> None:
     reference = datetime(2026, 8, 20, 20, 0, tzinfo=UTC)
     fraicheur = freshness_kpis(_sample_df(), now=reference)
 
-    # Âges : 12 h, 36 h et 250 h -> médiane à 36 h ; la publication sans date est ignorée.
+    # Ages: 12 h, 36 h and 250 h -> median at 36 h; the undated publication is ignored.
     assert fraicheur["age_median_heures"] == 36.0
     assert fraicheur["publications_datees"] == 3
     assert fraicheur["part_moins_24h_pct"] == 33.3
@@ -116,7 +116,7 @@ def test_performance_kpis_without_a_run() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Seuils du plan de monitoring
+# Thresholds of the monitoring plan
 # --------------------------------------------------------------------------- #
 def test_status_for_an_indicator_to_maximise() -> None:
     assert status_for("taux_validite_pct", 92) == "vert"
@@ -140,7 +140,7 @@ def test_evaluate_thresholds_covers_the_monitored_indicators() -> None:
 
 
 def test_every_threshold_is_justified() -> None:
-    # Un seuil sans justification ne peut pas être défendu devant l'équipe.
+    # A threshold with no rationale cannot be defended to the team.
     for nom, seuil in THRESHOLDS.items():
         assert seuil.justification, f"seuil sans justification : {nom}"
         assert seuil.sens in {"haut", "bas"}

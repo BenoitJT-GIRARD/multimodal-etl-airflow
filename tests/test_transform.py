@@ -1,4 +1,4 @@
-"""Tests unitaires des fonctions de transformation."""
+"""Unit tests of the transformation functions."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from multimodal_etl.transform import (
 
 
 def _valid_raw(image_path: str) -> dict[str, object]:
-    """Enregistrement brut complet, utilisé comme base dans plusieurs tests."""
+    """A complete raw record, used as a base by several tests."""
     return {
         "source": "rss:test",
         "source_type": "rss",
@@ -53,8 +53,8 @@ def test_validate_image_requires_the_file_to_exist(tmp_path: Path) -> None:
 
 
 def test_validate_image_resolves_a_path_relative_to_the_project() -> None:
-    # Le jeu de donnees stocke des chemins relatifs : ils doivent etre resolus
-    # depuis la racine du projet, quel que soit le dossier de travail courant.
+    # The dataset stores relative paths: they have to be resolved from the project root,
+    # whatever the current working directory is.
     fichier = PROJECT_ROOT / "data" / "raw" / "images" / "test_valide_image.jpg"
     fichier.parent.mkdir(parents=True, exist_ok=True)
     fichier.write_bytes(b"contenu")
@@ -92,7 +92,7 @@ def test_normalise_label() -> None:
 
 
 def test_normalise_language_maps_to_the_iso_code() -> None:
-    # NewsData.io renvoie "english" là où les flux RSS déclarent "en".
+    # NewsData.io returns "english" where the RSS feeds declare "en".
     assert normalise_language("english") == "en"
     assert normalise_language("EN") == "en"
     assert normalise_language("en-GB") == "en"
@@ -102,11 +102,11 @@ def test_normalise_language_maps_to_the_iso_code() -> None:
 
 
 def test_normalise_date_harmonises_the_formats() -> None:
-    # Format RFC 822 des flux RSS.
+    # The RFC 822 format of RSS feeds.
     assert normalise_date("Mon, 29 Jun 2026 10:00:00 GMT").startswith("2026-06-29T10:00:00")
-    # Format ISO des API.
+    # The ISO format of the APIs.
     assert normalise_date("2026-06-29 10:00:00").startswith("2026-06-29T10:00:00")
-    # Horodatage Unix de certains jeux de données, entier ou flottant.
+    # The Unix timestamp some datasets use, integer or float.
     assert normalise_date("1500000000").startswith("2017-07-14")
     assert normalise_date("1425138660.0").startswith("2015-02-28")
     assert normalise_date("") is None
@@ -129,7 +129,7 @@ def test_build_publication_on_a_valid_record(tmp_path: Path) -> None:
 
 
 def test_build_publication_rejects_a_missing_image_file() -> None:
-    # L'URL de l'image est renseignée, mais aucun fichier n'a pu être téléchargé.
+    # The image URL is filled in, but no file could be downloaded.
     brut = _valid_raw(image_path="")
     assert build_publication(brut, TransformConfig(require_image=True), "2026-06-29") is None
 

@@ -1,4 +1,4 @@
-"""Tests unitaires des connecteurs de sources."""
+"""Unit tests of the source connectors."""
 
 from __future__ import annotations
 
@@ -88,7 +88,7 @@ def test_source_name_infers_the_organisation_and_the_label() -> None:
 
 
 def test_read_csv_supports_very_long_fields(tmp_path: Path) -> None:
-    # La colonne tweet_ids du jeu réel dépasse la limite par défaut du module csv.
+    # The real dataset's tweet_ids column exceeds the csv module's default limit.
     tweets = "\t".join(str(i) for i in range(60_000))
     path_for = tmp_path / "politifact_fake.csv"
     path_for.write_text(
@@ -150,8 +150,8 @@ def test_enrich_publications_skips_those_that_already_have_an_image(monkeypatch)
 # Fakeddit (Kaggle)
 # --------------------------------------------------------------------------- #
 def test_fakeddit_reads_the_versioned_sample(tmp_path: Path, monkeypatch) -> None:
-    # Le dossier Kaggle est vidé pour que le test ne dépende pas de la présence du
-    # jeu réel sur la machine : c'est bien le repli sur l'échantillon qu'on vérifie.
+    # The Kaggle folder is emptied so the test does not depend on the real dataset being
+    # on the machine: what we check here is the fallback to the sample.
     monkeypatch.setattr(kaggle_fakeddit, "KAGGLE_DIR", tmp_path / "vide")
 
     records = kaggle_fakeddit.fetch_fakeddit(ExtractionConfig(max_items_per_source=5))
