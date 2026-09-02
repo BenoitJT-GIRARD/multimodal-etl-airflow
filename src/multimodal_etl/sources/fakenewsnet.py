@@ -38,7 +38,7 @@ CACHE_DIR = RAW_DIR / "fakenewsnet"
 csv.field_size_limit(10_000_000)
 
 
-def _nom_source(fichier: str) -> tuple[str, str]:
+def _source_name(fichier: str) -> tuple[str, str]:
     """Déduit l'organisme de vérification et le label du nom de fichier.
 
     ``politifact_fake.csv`` -> ``("politifact", "fake")``
@@ -48,7 +48,7 @@ def _nom_source(fichier: str) -> tuple[str, str]:
     return organisme, label
 
 
-def telecharge_csv(fichier: str, config: ExtractionConfig) -> Path | None:
+def download_csv(fichier: str, config: ExtractionConfig) -> Path | None:
     """Télécharge un CSV FakeNewsNet depuis GitHub, ou renvoie la copie en cache."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     destination = CACHE_DIR / fichier
@@ -73,13 +73,13 @@ def telecharge_csv(fichier: str, config: ExtractionConfig) -> Path | None:
     return destination
 
 
-def lit_csv(chemin: Path) -> list[dict[str, str]]:
+def read_csv(path_for: Path) -> list[dict[str, str]]:
     """Lit un CSV FakeNewsNet en liste de dictionnaires."""
-    contenu = chemin.read_text(encoding="utf-8", errors="replace")
+    contenu = path_for.read_text(encoding="utf-8", errors="replace")
     return list(csv.DictReader(io.StringIO(contenu)))
 
 
-def _construit_record(ligne: dict[str, str], organisme: str, label: str) -> dict[str, object]:
+def _build_record(ligne: dict[str, str], organisme: str, label: str) -> dict[str, object]:
     """Transforme une ligne FakeNewsNet en dictionnaire brut normalisé."""
     return {
         "source": f"fakenewsnet:{organisme}",
@@ -109,13 +109,13 @@ def fetch_fakenewsnet(config: ExtractionConfig) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
 
     for fichier in config.fakenewsnet_files:
-        chemin = telecharge_csv(fichier, config)
-        if chemin is None:
+        path_for = download_csv(fichier, config)
+        if path_for is None:
             continue
 
-        organisme, label = _nom_source(fichier)
-        lignes = lit_csv(chemin)[:par_fichier]
-        records.extend(_construit_record(ligne, organisme, label) for ligne in lignes)
+        organisme, label = _source_name(fichier)
+        lignes = read_csv(path_for)[:par_fichier]
+        records.extend(_build_record(ligne, organisme, label) for ligne in lignes)
         logger.info("FakeNewsNet : %d lignes lues dans %s", len(lignes), fichier)
 
     if not records:
@@ -123,7 +123,7 @@ def fetch_fakenewsnet(config: ExtractionConfig) -> list[dict[str, object]]:
         return []
 
     # Les CSV ne portent pas d'image : on va la chercher chez l'éditeur.
-    opengraph.enrichit_publications(records, config)
+    opengraph.enrich_publications(records, config)
 
     logger.info("FakeNewsNet : %d publications labellisées chargées", len(records))
     return records

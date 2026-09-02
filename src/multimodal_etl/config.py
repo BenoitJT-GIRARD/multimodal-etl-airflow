@@ -29,7 +29,7 @@ LOGS_DIR: Path = PROJECT_ROOT / "logs"
 INTERIM_DIR: Path = DATA_DIR / "interim"
 
 
-def chemin_relatif(chemin: Path) -> str:
+def relative_path(path_for: Path) -> str:
     """Exprime un chemin par rapport à la racine du projet.
 
     Les chemins stockés dans le jeu de données doivent rester valables ailleurs
@@ -39,15 +39,15 @@ def chemin_relatif(chemin: Path) -> str:
     absolu.
     """
     try:
-        return chemin.resolve().relative_to(PROJECT_ROOT).as_posix()
+        return path_for.resolve().relative_to(PROJECT_ROOT).as_posix()
     except ValueError:
         # Chemin hors du projet : on le garde tel quel plutôt que de le perdre.
-        return chemin.as_posix()
+        return path_for.as_posix()
 
 
-def chemin_absolu(chemin: str) -> Path:
+def absolute_path(path_for: str) -> Path:
     """Retrouve le fichier réel à partir d'un chemin relatif au projet."""
-    candidat = Path(chemin)
+    candidat = Path(path_for)
     return candidat if candidat.is_absolute() else PROJECT_ROOT / candidat
 
 

@@ -9,10 +9,10 @@ from sqlalchemy import create_engine, text
 
 from multimodal_etl.config import LoadConfig
 from multimodal_etl.load import (
-    charge_en_base,
-    compte_publications,
-    decoupe_en_tables,
-    lit_dataset,
+    count_publications,
+    read_dataset,
+    split_into_tables,
+    write_to_database,
 )
 from multimodal_etl.schema import COLUMNS
 
@@ -51,28 +51,28 @@ def _config(tmp_path: Path) -> LoadConfig:
     return LoadConfig(db_url=f"sqlite:///{(tmp_path / 'test.db').as_posix()}")
 
 
-def test_decoupe_en_tables_repartit_tous_les_champs() -> None:
-    tables = decoupe_en_tables(_dataset(("a", "b")))
+def test_split_into_tables_distributes_every_field() -> None:
+    tables = split_into_tables(_dataset(("a", "b")))
 
     assert set(tables) == {"source", "publication", "contenu_texte", "contenu_image", "label"}
     assert list(tables["contenu_texte"].columns) == ["id", "title", "text", "text_length"]
     assert "source_id" in tables["publication"].columns  # la clé de jointure est présente
 
 
-def test_decoupe_en_tables_deduplique_les_sources() -> None:
-    tables = decoupe_en_tables(_dataset(("a", "b", "c", "d")))
+def test_split_into_tables_deduplicates_the_sources() -> None:
+    tables = split_into_tables(_dataset(("a", "b", "c", "d")))
     # Quatre publications, mais seulement deux sources distinctes.
     assert len(tables["source"]) == 2
 
 
-def test_decoupe_en_tables_ne_garde_que_les_publications_annotees() -> None:
-    tables = decoupe_en_tables(_dataset(("a", "b", "c")))
+def test_split_into_tables_keeps_only_labelled_publications() -> None:
+    tables = split_into_tables(_dataset(("a", "b", "c")))
     assert list(tables["label"]["id"]) == ["a"]
 
 
-def test_charge_en_base_cree_toutes_les_tables(tmp_path: Path) -> None:
+def test_write_to_database_creates_every_table(tmp_path: Path) -> None:
     config = _config(tmp_path)
-    charge_en_base(_dataset(("a", "b")), config)
+    write_to_database(_dataset(("a", "b")), config)
 
     engine = create_engine(config.resolved_url)
     with engine.connect() as connexion:
@@ -84,31 +84,31 @@ def test_charge_en_base_cree_toutes_les_tables(tmp_path: Path) -> None:
     assert sources == 2
 
 
-def test_le_chargement_est_incremental(tmp_path: Path) -> None:
+def test_loading_is_incremental(tmp_path: Path) -> None:
     config = _config(tmp_path)
 
-    premier = charge_en_base(_dataset(("a", "b")), config)
-    second = charge_en_base(_dataset(("b", "c")), config)
+    premier = write_to_database(_dataset(("a", "b")), config)
+    second = write_to_database(_dataset(("b", "c")), config)
 
     assert premier["publications"] == 2
     # Seule la publication « c » est nouvelle ; « b » est déjà en base.
     assert second["publications"] == 1
     assert second["deja_presentes"] == 1
-    assert compte_publications(config) == 3
+    assert count_publications(config) == 3
 
 
-def test_relancer_le_meme_chargement_n_ajoute_rien(tmp_path: Path) -> None:
+def test_replaying_the_same_load_adds_nothing(tmp_path: Path) -> None:
     config = _config(tmp_path)
-    charge_en_base(_dataset(("a", "b")), config)
-    rejeu = charge_en_base(_dataset(("a", "b")), config)
+    write_to_database(_dataset(("a", "b")), config)
+    rejeu = write_to_database(_dataset(("a", "b")), config)
 
     assert rejeu["publications"] == 0
-    assert compte_publications(config) == 2
+    assert count_publications(config) == 2
 
 
-def test_les_cles_de_jointure_relient_les_tables(tmp_path: Path) -> None:
+def test_the_join_keys_connect_the_tables(tmp_path: Path) -> None:
     config = _config(tmp_path)
-    charge_en_base(_dataset(("a", "b")), config)
+    write_to_database(_dataset(("a", "b")), config)
 
     engine = create_engine(config.resolved_url)
     with engine.connect() as connexion:
@@ -128,12 +128,12 @@ def test_les_cles_de_jointure_relient_les_tables(tmp_path: Path) -> None:
     assert lignes[0][1] == "rss:bbc"
 
 
-def test_lit_dataset_gere_parquet_et_csv(tmp_path: Path) -> None:
+def test_read_dataset_handles_parquet_and_csv(tmp_path: Path) -> None:
     df = _dataset(("a",))
     chemin_csv = tmp_path / "d.csv"
     df.to_csv(chemin_csv, index=False)
-    assert len(lit_dataset(chemin_csv)) == 1
+    assert len(read_dataset(chemin_csv)) == 1
 
     chemin_parquet = tmp_path / "d.parquet"
     df.to_parquet(chemin_parquet, index=False)
-    assert len(lit_dataset(chemin_parquet)) == 1
+    assert len(read_dataset(chemin_parquet)) == 1

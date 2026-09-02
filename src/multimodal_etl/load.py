@@ -33,7 +33,7 @@ from sqlalchemy.engine import Engine
 
 from multimodal_etl.config import LoadConfig, ensure_dirs
 from multimodal_etl.logging_setup import get_logger
-from multimodal_etl.schema import ENTITES, champs_de
+from multimodal_etl.schema import ENTITES, fields_of
 
 logger = get_logger(__name__)
 
@@ -51,12 +51,12 @@ TABLES: dict[str, str] = {
 CLES: dict[str, str] = {"source": "source_id", "publication": "id"}
 
 
-def cle_primaire(table: str) -> str:
+def primary_key(table: str) -> str:
     """Renvoie le nom de la clé primaire d'une table."""
     return CLES.get(table, "id")
 
 
-def verifie_table(table: str, config: LoadConfig) -> None:
+def check_table(table: str, config: LoadConfig) -> None:
     """Refuse tout nom de table qui ne vient pas du schéma du projet.
 
     Les requêtes ci-dessous composent leur nom de table par interpolation. Ce
@@ -69,14 +69,14 @@ def verifie_table(table: str, config: LoadConfig) -> None:
         raise ValueError(f"table inconnue : {table}")
 
 
-def lit_dataset(path: Path) -> pd.DataFrame:
+def read_dataset(path: Path) -> pd.DataFrame:
     """Charge le dataset transformé (Parquet ou CSV) en DataFrame."""
     if path.suffix == ".parquet":
         return pd.read_parquet(path)
     return pd.read_csv(path)
 
 
-def decoupe_en_tables(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
+def split_into_tables(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """Éclate le dataset à plat en une table par entité du schéma conceptuel.
 
     Chaque table reçoit sa clé primaire puis les champs que le schéma rattache à
@@ -87,8 +87,8 @@ def decoupe_en_tables(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
     for entite in ENTITES:
         table = TABLES[entite]
-        cle = cle_primaire(table)
-        colonnes = [cle] + [spec.name for spec in champs_de(entite) if spec.name != cle]
+        cle = primary_key(table)
+        colonnes = [cle] + [spec.name for spec in fields_of(entite) if spec.name != cle]
 
         morceau = df[colonnes].copy()
         if table == "source":
@@ -102,26 +102,24 @@ def decoupe_en_tables(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     return tables
 
 
-def lit_cles_existantes(engine: Engine, table: str, config: LoadConfig) -> set[str]:
-    """Renvoie les clés primaires déjà présentes dans une table (vide si absente)."""
-    verifie_table(table, config)
+def read_existing_keys(engine: Engine, table: str, config: LoadConfig) -> set[str]:
+    """Renvoie les clés primaires déjà présentes dans une table (clear si absente)."""
+    check_table(table, config)
     if not inspect(engine).has_table(table):
         return set()
-    cle = cle_primaire(table)
+    cle = primary_key(table)
     with engine.connect() as connexion:
         requete = text(f"SELECT {cle} FROM {table}")  # nosec B608 - noms validés ci-dessus
         return {ligne[0] for ligne in connexion.execute(requete)}
 
 
-def ajoute_les_nouveautes(
-    engine: Engine, table: str, morceau: pd.DataFrame, config: LoadConfig
-) -> int:
+def insert_new_rows(engine: Engine, table: str, morceau: pd.DataFrame, config: LoadConfig) -> int:
     """Ajoute à une table les seules lignes dont la clé est encore inconnue."""
     if morceau.empty:
         return 0
 
-    cle = cle_primaire(table)
-    deja_connues = lit_cles_existantes(engine, table, config)
+    cle = primary_key(table)
+    deja_connues = read_existing_keys(engine, table, config)
     nouveautes = morceau[~morceau[cle].isin(deja_connues)]
     if nouveautes.empty:
         logger.info("Chargement : table '%s' déjà à jour", table)
@@ -132,7 +130,7 @@ def ajoute_les_nouveautes(
     return len(nouveautes)
 
 
-def charge_en_base(df: pd.DataFrame, config: LoadConfig | None = None) -> dict[str, int]:
+def write_to_database(df: pd.DataFrame, config: LoadConfig | None = None) -> dict[str, int]:
     """Charge le dataset dans la base et renvoie le nombre de lignes ajoutées par table."""
     config = config or LoadConfig()
     ensure_dirs()
@@ -144,11 +142,11 @@ def charge_en_base(df: pd.DataFrame, config: LoadConfig | None = None) -> dict[s
     bilan: dict[str, int] = {}
     try:
         # 1. Modèle éclaté : une table par entité, reliées par leurs clés.
-        for table, morceau in decoupe_en_tables(df).items():
-            bilan[table] = ajoute_les_nouveautes(engine, table, morceau, config)
+        for table, morceau in split_into_tables(df).items():
+            bilan[table] = insert_new_rows(engine, table, morceau, config)
 
         # 2. Table à plat, prête pour l'entraînement et le tableau de bord.
-        bilan[config.table_name] = ajoute_les_nouveautes(engine, config.table_name, df, config)
+        bilan[config.table_name] = insert_new_rows(engine, config.table_name, df, config)
     finally:
         engine.dispose()
 
@@ -161,10 +159,10 @@ def charge_en_base(df: pd.DataFrame, config: LoadConfig | None = None) -> dict[s
     return bilan
 
 
-def compte_publications(config: LoadConfig | None = None) -> int:
+def count_publications(config: LoadConfig | None = None) -> int:
     """Renvoie le nombre total de publications accumulées en base."""
     config = config or LoadConfig()
-    verifie_table(config.table_name, config)
+    check_table(config.table_name, config)
     engine = create_engine(config.resolved_url)
     try:
         if not inspect(engine).has_table(config.table_name):
@@ -178,5 +176,5 @@ def compte_publications(config: LoadConfig | None = None) -> int:
 
 def load_dataset(dataset_path: Path, config: LoadConfig | None = None) -> dict[str, int]:
     """Pipeline de chargement complet : lecture du dataset puis écriture en base."""
-    df = lit_dataset(dataset_path)
-    return charge_en_base(df, config)
+    df = read_dataset(dataset_path)
+    return write_to_database(df, config)

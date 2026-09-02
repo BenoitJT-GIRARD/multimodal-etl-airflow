@@ -5,19 +5,19 @@ from __future__ import annotations
 from pathlib import Path
 
 from multimodal_etl.config import PROJECT_ROOT, TransformConfig
-from multimodal_etl.schema import genere_id, genere_source_id
+from multimodal_etl.schema import generate_id, generate_source_id
 from multimodal_etl.transform import (
-    construit_publication,
-    extrait_domaine,
-    nettoie_texte,
+    build_publication,
+    clean_text,
+    extract_domain,
     normalise_date,
     normalise_label,
-    normalise_langue,
-    valide_image,
+    normalise_language,
+    validate_image,
 )
 
 
-def _brut_valide(image_path: str) -> dict[str, object]:
+def _valid_raw(image_path: str) -> dict[str, object]:
     """Enregistrement brut complet, utilisé comme base dans plusieurs tests."""
     return {
         "source": "rss:test",
@@ -35,53 +35,53 @@ def _brut_valide(image_path: str) -> dict[str, object]:
     }
 
 
-def test_nettoie_texte_retire_html_et_espaces() -> None:
+def test_clean_text_strips_html_and_whitespace() -> None:
     brut = "<p>Bonjour   le   <b>monde</b> !</p>\n"
-    assert nettoie_texte(brut) == "Bonjour le monde !"
+    assert clean_text(brut) == "Bonjour le monde !"
 
 
-def test_nettoie_texte_chaine_vide() -> None:
-    assert nettoie_texte("") == ""
+def test_clean_text_on_an_empty_string() -> None:
+    assert clean_text("") == ""
 
 
-def test_valide_image_exige_un_fichier_present(tmp_path: Path) -> None:
+def test_validate_image_requires_the_file_to_exist(tmp_path: Path) -> None:
     fichier = tmp_path / "image.jpg"
     fichier.write_bytes(b"contenu")
-    assert valide_image(str(fichier)) is True
-    assert valide_image(str(tmp_path / "absent.jpg")) is False
-    assert valide_image("") is False
+    assert validate_image(str(fichier)) is True
+    assert validate_image(str(tmp_path / "absent.jpg")) is False
+    assert validate_image("") is False
 
 
-def test_valide_image_resout_un_chemin_relatif_au_projet() -> None:
+def test_validate_image_resolves_a_path_relative_to_the_project() -> None:
     # Le jeu de donnees stocke des chemins relatifs : ils doivent etre resolus
     # depuis la racine du projet, quel que soit le dossier de travail courant.
     fichier = PROJECT_ROOT / "data" / "raw" / "images" / "test_valide_image.jpg"
     fichier.parent.mkdir(parents=True, exist_ok=True)
     fichier.write_bytes(b"contenu")
     try:
-        assert valide_image("data/raw/images/test_valide_image.jpg") is True
-        assert valide_image("data/raw/images/inexistante.jpg") is False
+        assert validate_image("data/raw/images/test_valide_image.jpg") is True
+        assert validate_image("data/raw/images/inexistante.jpg") is False
     finally:
         fichier.unlink(missing_ok=True)
 
 
-def test_extrait_domaine() -> None:
-    assert extrait_domaine("https://www.bbc.co.uk/news/article") == "bbc.co.uk"
-    assert extrait_domaine("") == ""
+def test_extract_domain() -> None:
+    assert extract_domain("https://www.bbc.co.uk/news/article") == "bbc.co.uk"
+    assert extract_domain("") == ""
 
 
-def test_genere_id_est_stable_et_unique() -> None:
-    premier = genere_id("https://a.com", "Titre A")
-    second = genere_id("https://a.com", "Titre A")
-    autre = genere_id("https://b.com", "Titre B")
+def test_generate_id_is_stable_and_unique() -> None:
+    premier = generate_id("https://a.com", "Titre A")
+    second = generate_id("https://a.com", "Titre A")
+    autre = generate_id("https://b.com", "Titre B")
     assert premier == second
     assert premier != autre
     assert len(premier) == 16
 
 
-def test_genere_source_id_est_stable() -> None:
-    assert genere_source_id("rss:bbc_news") == genere_source_id("rss:bbc_news")
-    assert genere_source_id("rss:bbc_news") != genere_source_id("newsdata")
+def test_generate_source_id_is_stable() -> None:
+    assert generate_source_id("rss:bbc_news") == generate_source_id("rss:bbc_news")
+    assert generate_source_id("rss:bbc_news") != generate_source_id("newsdata")
 
 
 def test_normalise_label() -> None:
@@ -91,17 +91,17 @@ def test_normalise_label() -> None:
     assert normalise_label("controverse") == "unverified"
 
 
-def test_normalise_langue_ramene_au_code_iso() -> None:
+def test_normalise_language_maps_to_the_iso_code() -> None:
     # NewsData.io renvoie "english" là où les flux RSS déclarent "en".
-    assert normalise_langue("english") == "en"
-    assert normalise_langue("EN") == "en"
-    assert normalise_langue("en-GB") == "en"
-    assert normalise_langue("fr_FR") == "fr"
-    assert normalise_langue("") == "en"
-    assert normalise_langue(None) == "en"
+    assert normalise_language("english") == "en"
+    assert normalise_language("EN") == "en"
+    assert normalise_language("en-GB") == "en"
+    assert normalise_language("fr_FR") == "fr"
+    assert normalise_language("") == "en"
+    assert normalise_language(None) == "en"
 
 
-def test_normalise_date_harmonise_les_formats() -> None:
+def test_normalise_date_harmonises_the_formats() -> None:
     # Format RFC 822 des flux RSS.
     assert normalise_date("Mon, 29 Jun 2026 10:00:00 GMT").startswith("2026-06-29T10:00:00")
     # Format ISO des API.
@@ -113,13 +113,11 @@ def test_normalise_date_harmonise_les_formats() -> None:
     assert normalise_date("date illisible") is None
 
 
-def test_construit_publication_valide(tmp_path: Path) -> None:
+def test_build_publication_on_a_valid_record(tmp_path: Path) -> None:
     image = tmp_path / "img.jpg"
     image.write_bytes(b"image")
 
-    pub = construit_publication(
-        _brut_valide(str(image)), TransformConfig(), "2026-06-29T10:00:00+00:00"
-    )
+    pub = build_publication(_valid_raw(str(image)), TransformConfig(), "2026-06-29T10:00:00+00:00")
 
     assert pub is not None
     assert pub.has_image is True
@@ -127,26 +125,26 @@ def test_construit_publication_valide(tmp_path: Path) -> None:
     assert pub.domain == "example.com"
     assert pub.label == "fake"
     assert pub.access_method == "flux_rss"
-    assert pub.source_id == genere_source_id("rss:test")
+    assert pub.source_id == generate_source_id("rss:test")
 
 
-def test_construit_publication_rejette_sans_fichier_image() -> None:
+def test_build_publication_rejects_a_missing_image_file() -> None:
     # L'URL de l'image est renseignée, mais aucun fichier n'a pu être téléchargé.
-    brut = _brut_valide(image_path="")
-    assert construit_publication(brut, TransformConfig(require_image=True), "2026-06-29") is None
+    brut = _valid_raw(image_path="")
+    assert build_publication(brut, TransformConfig(require_image=True), "2026-06-29") is None
 
 
-def test_construit_publication_accepte_sans_image_en_mode_souple(tmp_path: Path) -> None:
-    brut = _brut_valide(image_path="")
-    pub = construit_publication(brut, TransformConfig(require_image=False), "2026-06-29")
+def test_build_publication_accepts_no_image_in_lenient_mode(tmp_path: Path) -> None:
+    brut = _valid_raw(image_path="")
+    pub = build_publication(brut, TransformConfig(require_image=False), "2026-06-29")
     assert pub is not None
     assert pub.has_image is False
     assert pub.image_source == "aucune"
 
 
-def test_construit_publication_rejette_texte_trop_court(tmp_path: Path) -> None:
+def test_build_publication_rejects_text_that_is_too_short(tmp_path: Path) -> None:
     image = tmp_path / "img.jpg"
     image.write_bytes(b"image")
-    brut = _brut_valide(str(image))
+    brut = _valid_raw(str(image))
     brut["text"] = "court"
-    assert construit_publication(brut, TransformConfig(), "2026-06-29") is None
+    assert build_publication(brut, TransformConfig(), "2026-06-29") is None

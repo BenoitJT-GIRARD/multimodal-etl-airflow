@@ -17,22 +17,22 @@ from multimodal_etl.config import PROJECT_ROOT
 APPLICATION = PROJECT_ROOT / "dashboard" / "app.py"
 
 
-def _lance() -> AppTest:
+def _run() -> AppTest:
     application = AppTest.from_file(str(APPLICATION), default_timeout=120)
     application.run()
     return application
 
 
-def test_le_tableau_de_bord_se_construit_sans_erreur() -> None:
-    application = _lance()
+def test_the_dashboard_builds_without_error() -> None:
+    application = _run()
     assert not application.exception, [str(e) for e in application.exception]
 
 
-def test_le_tableau_de_bord_affiche_ses_sections() -> None:
+def test_the_dashboard_renders_its_sections() -> None:
     if not list((PROJECT_ROOT / "data" / "processed").glob("publications_*_stats.json")):
         pytest.skip("aucun jeu de données produit : lancer scripts/run_etl.py d'abord")
 
-    application = _lance()
+    application = _run()
     titres = [element.value for element in application.subheader]
 
     assert "État du pipeline" in titres
@@ -41,5 +41,5 @@ def test_le_tableau_de_bord_affiche_ses_sections() -> None:
     assert len(application.metric) >= 12
 
 
-def test_le_fichier_du_tableau_de_bord_existe() -> None:
+def test_the_dashboard_file_exists() -> None:
     assert Path(APPLICATION).is_file()

@@ -22,26 +22,26 @@ def _prepare(tmp_path: Path, monkeypatch) -> tuple[Path, Path, Path]:
     return interim, raw, processed
 
 
-def test_depose_copie_l_artefact_sous_un_nom_fixe(tmp_path: Path, monkeypatch) -> None:
+def test_stage_copies_the_artefact_under_a_fixed_name(tmp_path: Path, monkeypatch) -> None:
     interim, raw, _ = _prepare(tmp_path, monkeypatch)
     archive = raw / "raw_publications_20260820_090000.json"
     archive.write_text("[]", encoding="utf-8")
 
-    depose = transit.depose(archive, transit.EXTRACTION)
+    stage = transit.stage(archive, transit.EXTRACTION)
 
-    assert depose == interim / transit.EXTRACTION
-    assert depose.read_text(encoding="utf-8") == "[]"
+    assert stage == interim / transit.EXTRACTION
+    assert stage.read_text(encoding="utf-8") == "[]"
 
 
-def test_entree_extraction_prefere_le_fichier_de_transit(tmp_path: Path, monkeypatch) -> None:
+def test_extraction_input_prefers_the_working_file(tmp_path: Path, monkeypatch) -> None:
     interim, raw, _ = _prepare(tmp_path, monkeypatch)
     (raw / "raw_publications_20260820_090000.json").write_text("archive", encoding="utf-8")
     (interim / transit.EXTRACTION).write_text("transit", encoding="utf-8")
 
-    assert transit.entree_extraction().read_text(encoding="utf-8") == "transit"
+    assert transit.extraction_input().read_text(encoding="utf-8") == "transit"
 
 
-def test_entree_extraction_se_replie_sur_la_derniere_archive(tmp_path: Path, monkeypatch) -> None:
+def test_extraction_input_falls_back_to_the_last_archive(tmp_path: Path, monkeypatch) -> None:
     # C'est ce repli qui permet de rejouer la transformation seule après un nettoyage.
     _, raw, _ = _prepare(tmp_path, monkeypatch)
     ancienne = raw / "raw_publications_20260819_090000.json"
@@ -51,48 +51,48 @@ def test_entree_extraction_se_replie_sur_la_derniere_archive(tmp_path: Path, mon
     os.utime(ancienne, (1_700_000_000, 1_700_000_000))
     os.utime(recente, (1_700_003_600, 1_700_003_600))
 
-    entree = transit.entree_extraction()
+    entree = transit.extraction_input()
 
     assert entree is not None
     assert entree.name == recente.name
 
 
-def test_entree_extraction_renvoie_none_sans_donnee(tmp_path: Path, monkeypatch) -> None:
+def test_extraction_input_returns_none_without_data(tmp_path: Path, monkeypatch) -> None:
     _prepare(tmp_path, monkeypatch)
-    assert transit.entree_extraction() is None
+    assert transit.extraction_input() is None
 
 
-def test_entree_dataset_se_replie_sur_la_derniere_archive(tmp_path: Path, monkeypatch) -> None:
+def test_dataset_input_falls_back_to_the_last_archive(tmp_path: Path, monkeypatch) -> None:
     _, _, processed = _prepare(tmp_path, monkeypatch)
     archive = processed / "publications_20260820_090000.parquet"
     archive.write_bytes(b"parquet")
 
-    entree = transit.entree_dataset()
+    entree = transit.dataset_input()
 
     assert entree is not None
     assert entree.name == archive.name
 
 
-def test_mesures_font_l_aller_retour(tmp_path: Path, monkeypatch) -> None:
+def test_metrics_round_trip(tmp_path: Path, monkeypatch) -> None:
     _prepare(tmp_path, monkeypatch)
-    transit.ecris_mesures("extraction", {"duree_sec": 1.5, "publications_extraites": 10})
+    transit.write_metrics("extraction", {"duree_sec": 1.5, "publications_extraites": 10})
 
-    mesures = transit.lit_mesures("extraction")
+    mesures = transit.read_metrics("extraction")
 
     assert mesures["publications_extraites"] == 10
 
 
-def test_lit_mesures_absentes_renvoie_un_dictionnaire_vide(tmp_path: Path, monkeypatch) -> None:
+def test_read_metrics_returns_an_empty_dict_when_absent(tmp_path: Path, monkeypatch) -> None:
     _prepare(tmp_path, monkeypatch)
-    assert transit.lit_mesures("chargement") == {}
+    assert transit.read_metrics("chargement") == {}
 
 
-def test_vide_supprime_tous_les_fichiers_temporaires(tmp_path: Path, monkeypatch) -> None:
+def test_clear_deletes_every_temporary_file(tmp_path: Path, monkeypatch) -> None:
     interim, _, _ = _prepare(tmp_path, monkeypatch)
     (interim / transit.EXTRACTION).write_text("[]", encoding="utf-8")
-    transit.ecris_mesures("extraction", {"duree_sec": 1.0})
+    transit.write_metrics("extraction", {"duree_sec": 1.0})
 
-    supprimes = transit.vide()
+    supprimes = transit.clear()
 
     assert sorted(supprimes) == sorted([transit.EXTRACTION, transit.MESURES["extraction"]])
     assert list(interim.iterdir()) == []
@@ -113,9 +113,9 @@ def test_pipeline_load_step_delegates_to_the_loader():
 
     dataset = Path("data/processed/anything.parquet")
     with (
-        patch.object(pipeline.transit, "entree_dataset", return_value=dataset),
-        patch.object(pipeline.transit, "ecris_mesures"),
-        patch.object(pipeline, "compte_publications", return_value=7),
+        patch.object(pipeline.transit, "dataset_input", return_value=dataset),
+        patch.object(pipeline.transit, "write_metrics"),
+        patch.object(pipeline, "count_publications", return_value=7),
         patch.object(pipeline, "load_dataset", return_value={"publications": 3}) as loader,
     ):
         mesures = pipeline.run_load()

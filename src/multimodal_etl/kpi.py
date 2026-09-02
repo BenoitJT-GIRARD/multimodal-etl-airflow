@@ -26,8 +26,8 @@ import pandas as pd
 from multimodal_etl.config import PROCESSED_DIR, RUNS_DIR
 
 
-class Seuil(NamedTuple):
-    """Seuil d'alerte d'un indicateur, tel que défini dans le plan de monitoring."""
+class Threshold(NamedTuple):
+    """Threshold d'alerte d'un indicateur, tel que défini dans le plan de monitoring."""
 
     libelle: str
     sens: str  # "haut" : plus c'est grand mieux c'est ; "bas" : l'inverse
@@ -38,8 +38,8 @@ class Seuil(NamedTuple):
 
 # Seuils d'alerte — source unique de vérité, partagée par le tableau de bord et le
 # plan de monitoring.
-SEUILS: dict[str, Seuil] = {
-    "taux_validite_pct": Seuil(
+SEUILS: dict[str, Threshold] = {
+    "taux_validite_pct": Threshold(
         "Taux de validité",
         "haut",
         60,
@@ -48,56 +48,56 @@ SEUILS: dict[str, Seuil] = {
         "d'une image indisponible, ce qui est normal. Sous 45 %, c'est une source qui a "
         "changé de format.",
     ),
-    "taux_association_texte_image_pct": Seuil(
+    "taux_association_texte_image_pct": Threshold(
         "Association texte-image",
         "haut",
         90,
         75,
         "C'est la définition même du jeu de données : sans image, la publication est inutile.",
     ),
-    "taux_images_telechargees_pct": Seuil(
+    "taux_images_telechargees_pct": Threshold(
         "Images téléchargées",
         "haut",
         80,
         60,
         "Mesure la disponibilité des médias : une URL annoncée ne vaut pas un fichier obtenu.",
     ),
-    "taux_doublons_pct": Seuil(
+    "taux_doublons_pct": Threshold(
         "Taux de doublons",
         "bas",
         5,
         15,
         "Un taux qui grimpe signale une sur-ingestion ou un identifiant devenu instable.",
     ),
-    "part_source_dominante_pct": Seuil(
+    "part_source_dominante_pct": Threshold(
         "Part de la source dominante",
         "bas",
         50,
         70,
         "Un jeu de données capté par une seule source transmet son biais au modèle.",
     ),
-    "age_median_heures": Seuil(
+    "age_median_heures": Threshold(
         "Âge médian",
         "bas",
         48,
         168,
         "Un détecteur de fake news doit voir l'actualité récente, pas des archives.",
     ),
-    "nb_publications": Seuil(
+    "nb_publications": Threshold(
         "Volume ingéré",
         "haut",
         80,
         40,
         "Un volume qui s'effondre trahit une source en panne.",
     ),
-    "duree_totale_sec": Seuil(
+    "duree_totale_sec": Threshold(
         "Durée totale",
         "bas",
         90,
         300,
         "Au-delà, la fenêtre d'exécution quotidienne finit par être dépassée.",
     ),
-    "failed_sources": Seuil(
+    "failed_sources": Threshold(
         "Sources en échec",
         "bas",
         0,
@@ -107,7 +107,7 @@ SEUILS: dict[str, Seuil] = {
 }
 
 
-def _pourcentage(part: float, total: float) -> float:
+def _percentage(part: float, total: float) -> float:
     """Renvoie un pourcentage arrondi, en évitant la division par zéro."""
     if total <= 0:
         return 0.0
@@ -117,7 +117,7 @@ def _pourcentage(part: float, total: float) -> float:
 # --------------------------------------------------------------------------- #
 # Familles d'indicateurs
 # --------------------------------------------------------------------------- #
-def kpis_qualite(df: pd.DataFrame, stats: dict[str, int]) -> dict[str, float]:
+def quality_kpis(df: pd.DataFrame, stats: dict[str, int]) -> dict[str, float]:
     """Qualité des données : ce qui survit au nettoyage et ce qui est exploitable."""
     total_brut = stats.get("total_brut", 0)
     total_valide = len(df)
@@ -132,18 +132,18 @@ def kpis_qualite(df: pd.DataFrame, stats: dict[str, int]) -> dict[str, float]:
         }
 
     return {
-        "taux_validite_pct": _pourcentage(total_valide, total_brut),
-        "taux_association_texte_image_pct": _pourcentage(int(df["has_image"].sum()), total_valide),
-        "taux_labellise_pct": _pourcentage(int(df["label"].notna().sum()), total_valide),
-        "taux_doublons_pct": _pourcentage(stats.get("doublons", 0), max(total_brut, 1)),
+        "taux_validite_pct": _percentage(total_valide, total_brut),
+        "taux_association_texte_image_pct": _percentage(int(df["has_image"].sum()), total_valide),
+        "taux_labellise_pct": _percentage(int(df["label"].notna().sum()), total_valide),
+        "taux_doublons_pct": _percentage(stats.get("doublons", 0), max(total_brut, 1)),
         # Sans date de publication, ni la fraîcheur ni les features temporelles ne
         # sont calculables : c'est un contrôle de complétude à part entière.
-        "taux_date_connue_pct": _pourcentage(int(df["published_at"].notna().sum()), total_valide),
+        "taux_date_connue_pct": _percentage(int(df["published_at"].notna().sum()), total_valide),
         "longueur_texte_moyenne": round(float(df["text_length"].mean()), 1),
     }
 
 
-def kpis_volume(df: pd.DataFrame) -> dict[str, object]:
+def volume_kpis(df: pd.DataFrame) -> dict[str, object]:
     """Volume et diversité : combien de publications, et d'où viennent-elles."""
     if df.empty:
         return {
@@ -161,34 +161,34 @@ def kpis_volume(df: pd.DataFrame) -> dict[str, object]:
         "nb_sources": int(df["source"].nunique()),
         # Un jeu de données dominé par une seule source hérite de son biais
         # éditorial : on surveille donc la concentration, pas seulement le volume.
-        "part_source_dominante_pct": _pourcentage(int(repartition.iloc[0]), len(df)),
+        "part_source_dominante_pct": _percentage(int(repartition.iloc[0]), len(df)),
         "repartition_sources": repartition.to_dict(),
         "repartition_langues": df["language"].value_counts().to_dict(),
         "repartition_methodes_acces": df["access_method"].value_counts().to_dict(),
     }
 
 
-def kpis_fraicheur(df: pd.DataFrame, maintenant: datetime | None = None) -> dict[str, float]:
+def freshness_kpis(df: pd.DataFrame, maintenant: datetime | None = None) -> dict[str, float]:
     """Fraîcheur : quel âge ont les publications que l'on vient d'ingérer."""
-    vide = {"age_median_heures": 0.0, "part_moins_24h_pct": 0.0, "publications_datees": 0}
+    clear = {"age_median_heures": 0.0, "part_moins_24h_pct": 0.0, "publications_datees": 0}
     if df.empty or "published_at" not in df.columns:
-        return vide
+        return clear
 
     dates = pd.to_datetime(df["published_at"], errors="coerce", utc=True, format="mixed").dropna()
     if dates.empty:
-        return vide
+        return clear
 
     reference = maintenant or datetime.now(UTC)
     ages_heures = (pd.Timestamp(reference) - dates).dt.total_seconds() / 3600
 
     return {
         "age_median_heures": round(float(ages_heures.median()), 1),
-        "part_moins_24h_pct": _pourcentage(int((ages_heures <= 24).sum()), len(ages_heures)),
+        "part_moins_24h_pct": _percentage(int((ages_heures <= 24).sum()), len(ages_heures)),
         "publications_datees": len(ages_heures),
     }
 
 
-def kpis_performance(run: dict[str, object]) -> dict[str, float]:
+def performance_kpis(run: dict[str, object]) -> dict[str, float]:
     """Rapidité, coût et fiabilité de l'exécution."""
     durees = run.get("durations_sec", {}) if run else {}
     duree_totale = round(sum(float(valeur) for valeur in durees.values()), 2)
@@ -205,12 +205,12 @@ def kpis_performance(run: dict[str, object]) -> dict[str, float]:
         # Coût : appels d'API consommés sur le quota, et disque occupé par les images.
         "appels_api_consommes": int(run.get("api_calls", 0)) if run else 0,
         "poids_images_mo": round(float(images.get("octets", 0)) / (1024 * 1024), 2),
-        "taux_images_telechargees_pct": _pourcentage(
+        "taux_images_telechargees_pct": _percentage(
             float(images.get("reussies", 0)), float(images.get("tentees", 0))
         ),
         # Part des publications de ce run réellement nouvelles en base : c'est ce
         # qu'une exécution quotidienne apporte vraiment au jeu de données.
-        "taux_nouveaute_pct": _pourcentage(lignes, extraites),
+        "taux_nouveaute_pct": _percentage(lignes, extraites),
         "publications_ajoutees": lignes,
         "publications_en_base": int(run.get("rows_in_db", 0)) if run else 0,
         "failed_sources": int(run.get("failed_sources", 0)) if run else 0,
@@ -222,17 +222,17 @@ def compute_kpis(
 ) -> dict[str, object]:
     """Agrège les quatre familles d'indicateurs en un seul dictionnaire."""
     return {
-        "qualite": kpis_qualite(df, stats),
-        "volume": kpis_volume(df),
-        "fraicheur": kpis_fraicheur(df),
-        "performance": kpis_performance(run),
+        "qualite": quality_kpis(df, stats),
+        "volume": volume_kpis(df),
+        "fraicheur": freshness_kpis(df),
+        "performance": performance_kpis(run),
     }
 
 
 # --------------------------------------------------------------------------- #
 # Confrontation aux seuils du plan de monitoring
 # --------------------------------------------------------------------------- #
-def statut(indicateur: str, valeur: float) -> str:
+def status_for(indicateur: str, valeur: float) -> str:
     """Classe une valeur en 'vert', 'orange' ou 'rouge' selon son seuil."""
     seuil = SEUILS[indicateur]
     if seuil.sens == "haut":
@@ -245,8 +245,8 @@ def statut(indicateur: str, valeur: float) -> str:
     return "orange" if valeur <= seuil.orange else "rouge"
 
 
-def evalue_seuils(kpis: dict[str, object]) -> list[dict[str, object]]:
-    """Confronte chaque indicateur surveillé à son seuil et renvoie son statut."""
+def evaluate_thresholds(kpis: dict[str, object]) -> list[dict[str, object]]:
+    """Confronte chaque indicateur surveillé à son seuil et renvoie son status_for."""
     valeurs: dict[str, float] = {}
     for famille in kpis.values():
         for nom, valeur in famille.items():
@@ -258,7 +258,7 @@ def evalue_seuils(kpis: dict[str, object]) -> list[dict[str, object]]:
             "indicateur": nom,
             "libelle": SEUILS[nom].libelle,
             "valeur": valeur,
-            "statut": statut(nom, valeur),
+            "statut": status_for(nom, valeur),
             "attendu": (
                 f"≥ {SEUILS[nom].vert:g}"
                 if SEUILS[nom].sens == "haut"
@@ -273,19 +273,19 @@ def evalue_seuils(kpis: dict[str, object]) -> list[dict[str, object]]:
 # --------------------------------------------------------------------------- #
 # Chargement des artefacts produits par le pipeline
 # --------------------------------------------------------------------------- #
-def _datasets_disponibles() -> list[Path]:
+def _available_datasets() -> list[Path]:
     """Liste les datasets exportés, du plus récent au plus ancien."""
     fichiers = list(PROCESSED_DIR.glob("publications_*.parquet"))
     fichiers += list(PROCESSED_DIR.glob("publications_*.csv"))
     return sorted(fichiers, key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
 
 
-def _lit_dataset(chemin: Path) -> pd.DataFrame:
+def _read_dataset(path_for: Path) -> pd.DataFrame:
     """Lit un dataset exporté, quel que soit son format."""
-    return pd.read_parquet(chemin) if chemin.suffix == ".parquet" else pd.read_csv(chemin)
+    return pd.read_parquet(path_for) if path_for.suffix == ".parquet" else pd.read_csv(path_for)
 
 
-def charge_dernier_dataset() -> tuple[pd.DataFrame, dict[str, int], dict[str, object]]:
+def load_latest_dataset() -> tuple[pd.DataFrame, dict[str, int], dict[str, object]]:
     """Charge le dataset le plus récent **accompagné de ses statistiques**.
 
     Les statistiques sont écrites à côté du dataset par l'étape de transformation.
@@ -293,18 +293,18 @@ def charge_dernier_dataset() -> tuple[pd.DataFrame, dict[str, int], dict[str, ob
     jeu de données sans ses statistiques donnerait des indicateurs faux (un taux de
     validité à 0 %, par exemple).
     """
-    for chemin in _datasets_disponibles():
-        chemin_stats = chemin.with_name(chemin.stem + "_stats.json")
+    for path_for in _available_datasets():
+        chemin_stats = path_for.with_name(path_for.stem + "_stats.json")
         if not chemin_stats.exists():
             continue
-        df = _lit_dataset(chemin)
+        df = _read_dataset(path_for)
         stats = json.loads(chemin_stats.read_text(encoding="utf-8"))
-        return df, stats, dernier_run()
+        return df, stats, latest_run()
 
     return pd.DataFrame(), {}, {}
 
 
-def _fiches_runs() -> list[Path]:
+def _run_records() -> list[Path]:
     """Liste les fiches d'exécution, de la plus récente à la plus ancienne."""
     if not RUNS_DIR.exists():
         return []
@@ -313,15 +313,15 @@ def _fiches_runs() -> list[Path]:
     )
 
 
-def dernier_run() -> dict[str, object]:
+def latest_run() -> dict[str, object]:
     """Renvoie la fiche de la dernière exécution du pipeline."""
-    fiches = _fiches_runs()
+    fiches = _run_records()
     if not fiches:
         return {}
     return json.loads(fiches[0].read_text(encoding="utf-8"))
 
 
-def historique_runs() -> pd.DataFrame:
+def run_history() -> pd.DataFrame:
     """Rassemble toutes les exécutions passées en un tableau chronologique.
 
     C'est ce qui permet de regarder une tendance plutôt qu'un instantané : un taux
@@ -329,7 +329,7 @@ def historique_runs() -> pd.DataFrame:
     descend.
     """
     lignes = []
-    for fiche in reversed(_fiches_runs()):
+    for fiche in reversed(_run_records()):
         run = json.loads(fiche.read_text(encoding="utf-8"))
         stats = run.get("stats", {})
         durees = run.get("durations_sec", {})
@@ -341,7 +341,7 @@ def historique_runs() -> pd.DataFrame:
                 "publications_ajoutees": run.get("rows_loaded", 0),
                 "publications_en_base": run.get("rows_in_db", 0),
                 "duree_totale_sec": round(sum(float(v) for v in durees.values()), 2),
-                "taux_validite_pct": _pourcentage(
+                "taux_validite_pct": _percentage(
                     stats.get("total_valide", 0), stats.get("total_brut", 0)
                 ),
                 "failed_sources": run.get("failed_sources", 0),

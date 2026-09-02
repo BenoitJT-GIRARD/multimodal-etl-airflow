@@ -22,7 +22,7 @@ def extract_image_from_entry(entry: feedparser.FeedParserDict) -> str:
     """Cherche l'URL d'image d'une entree RSS aux endroits usuels.
 
     Ordre de recherche : ``media_content`` -> ``media_thumbnail`` -> ``enclosures``
-    -> balise ``<img>`` dans le resume HTML. Renvoie une chaine vide si rien n'est
+    -> balise ``<img>`` dans le resume HTML. Renvoie une chaine clear si rien n'est
     trouve (la publication sera ecartee plus tard si l'image est obligatoire).
     """
     # 1. Balises Media RSS : <media:content url="...">

@@ -34,7 +34,7 @@ ECHANTILLON = SAMPLES_DIR / "fakeddit_sample.tsv"
 _LABELS = {"1": "real", "0": "fake"}
 
 
-def choisit_fichier() -> tuple[Path, bool] | None:
+def pick_file() -> tuple[Path, bool] | None:
     """Choisit la source de données : jeu Kaggle réel si présent, sinon échantillon.
 
     Renvoie le chemin et un booléen indiquant s'il s'agit du jeu réel.
@@ -52,13 +52,13 @@ def choisit_fichier() -> tuple[Path, bool] | None:
     return None
 
 
-def lit_tsv(chemin: Path) -> list[dict[str, str]]:
+def read_tsv(path_for: Path) -> list[dict[str, str]]:
     """Lit un fichier Fakeddit (valeurs séparées par des tabulations)."""
-    with chemin.open("r", encoding="utf-8", newline="") as fichier:
+    with path_for.open("r", encoding="utf-8", newline="") as fichier:
         return list(csv.DictReader(fichier, delimiter="\t"))
 
 
-def _construit_record(ligne: dict[str, str]) -> dict[str, object]:
+def _build_record(ligne: dict[str, str]) -> dict[str, object]:
     """Transforme une ligne Fakeddit en dictionnaire brut normalisé."""
     titre = ligne.get("clean_title") or ligne.get("title") or ""
     image_url = ligne.get("image_url", "").strip()
@@ -86,7 +86,7 @@ def _construit_record(ligne: dict[str, str]) -> dict[str, object]:
 
 def fetch_fakeddit(config: ExtractionConfig) -> list[dict[str, object]]:
     """Charge les publications multimodales Fakeddit."""
-    choix = choisit_fichier()
+    choix = pick_file()
     if choix is None:
         logger.warning(
             "Fakeddit : aucune donnée disponible. Déposez le fichier .tsv dans %s "
@@ -95,18 +95,18 @@ def fetch_fakeddit(config: ExtractionConfig) -> list[dict[str, object]]:
         )
         return []
 
-    chemin, est_reel = choix
-    lignes = lit_tsv(chemin)
+    path_for, est_reel = choix
+    lignes = read_tsv(path_for)
 
     # Le jeu réel ne garde que les publications réellement multimodales.
     avec_image = [ligne for ligne in lignes if ligne.get("image_url", "").strip()]
     retenues = avec_image[: config.max_items_per_source]
 
-    records = [_construit_record(ligne) for ligne in retenues]
+    records = [_build_record(ligne) for ligne in retenues]
     logger.info(
         "Fakeddit : %d publications chargées depuis %s (%s)",
         len(records),
-        chemin.name,
+        path_for.name,
         "jeu Kaggle réel" if est_reel else "échantillon de démonstration",
     )
     return records

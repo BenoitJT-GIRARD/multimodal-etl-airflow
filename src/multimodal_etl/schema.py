@@ -201,20 +201,20 @@ FIELDS: tuple[FieldSpec, ...] = (
 COLUMNS: tuple[str, ...] = tuple(spec.name for spec in FIELDS)
 
 
-def champs_de(entite: str) -> tuple[FieldSpec, ...]:
+def fields_of(entite: str) -> tuple[FieldSpec, ...]:
     """Renvoie les champs rattachés à une entité conceptuelle donnée."""
     return tuple(spec for spec in FIELDS if spec.entite == entite)
 
 
 # Les empreintes ci-dessous servent uniquement à fabriquer des identifiants stables
 # et courts : elles ne protègent rien, d'où `usedforsecurity=False`.
-def genere_id(url: str, title: str) -> str:
+def generate_id(url: str, title: str) -> str:
     """Génère l'identifiant stable d'une publication à partir de l'URL et du titre."""
     graine = f"{url}|{title}".encode()
     return hashlib.sha1(graine, usedforsecurity=False).hexdigest()[:16]
 
 
-def genere_source_id(source: str) -> str:
+def generate_source_id(source: str) -> str:
     """Génère la clé de jointure d'une source à partir de son nom."""
     return hashlib.sha1(source.encode(), usedforsecurity=False).hexdigest()[:12]
 

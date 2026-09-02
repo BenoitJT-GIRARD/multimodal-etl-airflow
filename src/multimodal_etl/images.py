@@ -9,9 +9,9 @@ dans le JSON brut aux côtés du texte.
 Le module est organisé en quatre petites fonctions :
 
 1. :func:`url_plausible` — filtre les URL manifestement inutilisables (gratuit) ;
-2. :func:`nom_de_fichier` — construit un nom déterministe (relance = pas de doublon) ;
-3. :func:`telecharge_image` — télécharge et valide **une** image ;
-4. :func:`telecharge_images` — parcourt les publications et complète ``image_path``.
+2. :func:`filename_for` — construit un nom déterministe (relance = pas de doublon) ;
+3. :func:`download_image` — télécharge et valide **une** image ;
+4. :func:`download_images` — parcourt les publications et complète ``image_path``.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from urllib.parse import urlparse
 import requests
 from PIL import Image, UnidentifiedImageError
 
-from multimodal_etl.config import IMAGES_DIR, ImageConfig, chemin_relatif, ensure_dirs
+from multimodal_etl.config import IMAGES_DIR, ImageConfig, ensure_dirs, relative_path
 from multimodal_etl.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -51,7 +51,7 @@ def url_plausible(image_url: str) -> bool:
     return analyse.scheme in {"http", "https"} and bool(analyse.netloc)
 
 
-def nom_de_fichier(image_url: str, type_mime: str) -> str:
+def filename_for(image_url: str, type_mime: str) -> str:
     """Construit un nom de fichier déterministe à partir de l'URL de l'image.
 
     Le nom dépend uniquement de l'URL : relancer le pipeline réécrit le même
@@ -64,9 +64,7 @@ def nom_de_fichier(image_url: str, type_mime: str) -> str:
     return f"{empreinte}{extension}"
 
 
-def telecharge_image(
-    image_url: str, config: ImageConfig, dossier: Path | None = None
-) -> Path | None:
+def download_image(image_url: str, config: ImageConfig, dossier: Path | None = None) -> Path | None:
     """Télécharge une image et renvoie son chemin, ou ``None`` si elle est inutilisable.
 
     Trois contrôles successifs, du moins cher au plus cher :
@@ -101,29 +99,29 @@ def telecharge_image(
         logger.warning("Image : %.1f Mo au-dessus de la limite pour %s", poids_mo, image_url[:80])
         return None
 
-    chemin = dossier / nom_de_fichier(image_url, type_mime)
-    chemin.write_bytes(reponse.content)
+    path_for = dossier / filename_for(image_url, type_mime)
+    path_for.write_bytes(reponse.content)
 
     # 3. Le fichier est-il une image réellement décodable ? (URL piégée, fichier tronqué)
     try:
-        with Image.open(chemin) as image:
+        with Image.open(path_for) as image:
             image.verify()
     except (UnidentifiedImageError, OSError) as exc:
-        logger.warning("Image : fichier illisible, supprimé (%s) : %s", chemin.name, exc)
-        chemin.unlink(missing_ok=True)
+        logger.warning("Image : fichier illisible, supprimé (%s) : %s", path_for.name, exc)
+        path_for.unlink(missing_ok=True)
         return None
 
-    return chemin
+    return path_for
 
 
-def telecharge_images(
+def download_images(
     records: list[dict[str, object]], config: ImageConfig | None = None
 ) -> dict[str, int]:
     """Complète chaque publication avec le chemin de son image téléchargée.
 
     Modifie les dictionnaires sur place en renseignant ``image_path`` — un chemin
     **relatif à la racine du projet**, pour rester valable en local comme dans le
-    conteneur Airflow — ou une chaîne vide si l'image n'a pas pu être récupérée.
+    conteneur Airflow — ou une chaîne clear si l'image n'a pas pu être récupérée.
     Renvoie un compte rendu chiffré, repris par les KPI.
     """
     config = config or ImageConfig()
@@ -146,15 +144,15 @@ def telecharge_images(
             continue
 
         compteurs["tentees"] += 1
-        chemin = telecharge_image(image_url, config)
-        if chemin is None:
+        path_for = download_image(image_url, config)
+        if path_for is None:
             record["image_path"] = ""
             compteurs["echouees"] += 1
             continue
 
-        record["image_path"] = chemin_relatif(chemin)
+        record["image_path"] = relative_path(path_for)
         compteurs["reussies"] += 1
-        compteurs["octets"] += chemin.stat().st_size
+        compteurs["octets"] += path_for.stat().st_size
 
     logger.info(
         "Images : %d téléchargées, %d échecs, %d ignorées (%.1f Mo sur disque)",

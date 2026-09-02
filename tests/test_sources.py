@@ -32,24 +32,24 @@ FLUX_RSS_EXEMPLE = """<?xml version="1.0" encoding="UTF-8"?>
 # --------------------------------------------------------------------------- #
 # Flux RSS
 # --------------------------------------------------------------------------- #
-def test_extraction_image_depuis_media_content() -> None:
+def test_image_extraction_from_media_content() -> None:
     flux = feedparser.parse(FLUX_RSS_EXEMPLE)
     assert rss.extract_image_from_entry(flux.entries[0]) == "https://presse.example.com/photo.jpg"
 
 
-def test_extraction_image_absente_renvoie_une_chaine_vide() -> None:
+def test_image_extraction_returns_an_empty_string_when_absent() -> None:
     flux = feedparser.parse(FLUX_RSS_EXEMPLE)
     assert rss.extract_image_from_entry(flux.entries[1]) == ""
 
 
-def test_extraction_image_depuis_une_balise_img_du_resume() -> None:
+def test_image_extraction_from_an_img_tag_in_the_summary() -> None:
     entree = feedparser.util.FeedParserDict(
         summary='<p>Texte <img src="https://presse.example.com/inline.png"/></p>'
     )
     assert rss.extract_image_from_entry(entree) == "https://presse.example.com/inline.png"
 
 
-def test_fetch_rss_feed_normalise_les_champs(monkeypatch) -> None:
+def test_fetch_rss_feed_normalises_the_fields(monkeypatch) -> None:
     flux = feedparser.parse(FLUX_RSS_EXEMPLE)
     monkeypatch.setattr(rss.feedparser, "parse", lambda *a, **k: flux)
     records = rss.fetch_rss_feed("presse_test", "https://exemple", ExtractionConfig())
@@ -62,18 +62,18 @@ def test_fetch_rss_feed_normalise_les_champs(monkeypatch) -> None:
     assert records[1]["image_source"] == "aucune"
 
 
-def test_fetch_rss_feed_survit_a_un_flux_injoignable(monkeypatch) -> None:
-    def echoue(*args, **kwargs):
+def test_fetch_rss_feed_survives_an_unreachable_feed(monkeypatch) -> None:
+    def fails(*args, **kwargs):
         raise OSError("réseau indisponible")
 
-    monkeypatch.setattr(rss.feedparser, "parse", echoue)
+    monkeypatch.setattr(rss.feedparser, "parse", fails)
     assert rss.fetch_rss_feed("presse_test", "https://exemple", ExtractionConfig()) == []
 
 
 # --------------------------------------------------------------------------- #
 # API NewsData.io
 # --------------------------------------------------------------------------- #
-def test_newsdata_est_ignore_sans_cle(monkeypatch) -> None:
+def test_newsdata_is_skipped_without_a_key(monkeypatch) -> None:
     monkeypatch.delenv("NEWSDATA_API_KEY", raising=False)
     assert newsdata.is_enabled() is False
     assert newsdata.fetch_newsdata(ExtractionConfig()) == []
@@ -82,28 +82,28 @@ def test_newsdata_est_ignore_sans_cle(monkeypatch) -> None:
 # --------------------------------------------------------------------------- #
 # FakeNewsNet (GitHub)
 # --------------------------------------------------------------------------- #
-def test_nom_source_deduit_organisme_et_label() -> None:
-    assert fakenewsnet._nom_source("politifact_fake.csv") == ("politifact", "fake")
-    assert fakenewsnet._nom_source("gossipcop_real.csv") == ("gossipcop", "real")
+def test_source_name_infers_the_organisation_and_the_label() -> None:
+    assert fakenewsnet._source_name("politifact_fake.csv") == ("politifact", "fake")
+    assert fakenewsnet._source_name("gossipcop_real.csv") == ("gossipcop", "real")
 
 
-def test_lit_csv_supporte_les_champs_tres_longs(tmp_path: Path) -> None:
+def test_read_csv_supports_very_long_fields(tmp_path: Path) -> None:
     # La colonne tweet_ids du jeu réel dépasse la limite par défaut du module csv.
     tweets = "\t".join(str(i) for i in range(60_000))
-    chemin = tmp_path / "politifact_fake.csv"
-    chemin.write_text(
+    path_for = tmp_path / "politifact_fake.csv"
+    path_for.write_text(
         f'id,news_url,title,tweet_ids\np1,exemple.com/a,"Un titre","{tweets}"\n', encoding="utf-8"
     )
 
-    lignes = fakenewsnet.lit_csv(chemin)
+    lignes = fakenewsnet.read_csv(path_for)
 
     assert len(lignes) == 1
     assert lignes[0]["title"] == "Un titre"
 
 
-def test_construit_record_fakenewsnet_ajoute_le_schema_et_le_label() -> None:
+def test_build_fakenewsnet_record_adds_the_schema_and_the_label() -> None:
     ligne = {"news_url": "exemple.com/article", "title": "Un titre"}
-    record = fakenewsnet._construit_record(ligne, "politifact", "fake")
+    record = fakenewsnet._build_record(ligne, "politifact", "fake")
 
     assert record["source"] == "fakenewsnet:politifact"
     assert record["access_method"] == "telechargement_github"
@@ -115,19 +115,19 @@ def test_construit_record_fakenewsnet_ajoute_le_schema_et_le_label() -> None:
 # --------------------------------------------------------------------------- #
 # Enrichissement Open Graph
 # --------------------------------------------------------------------------- #
-def test_normalise_url_ajoute_le_schema() -> None:
+def test_normalise_url_adds_the_scheme() -> None:
     assert opengraph.normalise_url("exemple.com/a") == "https://exemple.com/a"
     assert opengraph.normalise_url("https://exemple.com/a") == "https://exemple.com/a"
     assert opengraph.normalise_url("  ") == ""
 
 
-def test_enrichit_publications_respecte_le_plafond(monkeypatch) -> None:
+def test_enrich_publications_respects_the_cap(monkeypatch) -> None:
     monkeypatch.setattr(
-        opengraph, "lit_image_open_graph", lambda url, config: "https://site.com/og.jpg"
+        opengraph, "read_open_graph_image", lambda url, config: "https://site.com/og.jpg"
     )
     records = [{"url": f"https://site.com/{i}", "image_url": ""} for i in range(5)]
 
-    compteurs = opengraph.enrichit_publications(
+    compteurs = opengraph.enrich_publications(
         records, ExtractionConfig(max_enrichissements_open_graph=2)
     )
 
@@ -136,11 +136,11 @@ def test_enrichit_publications_respecte_le_plafond(monkeypatch) -> None:
     assert records[4]["image_url"] == ""
 
 
-def test_enrichit_publications_ignore_celles_qui_ont_deja_une_image(monkeypatch) -> None:
-    monkeypatch.setattr(opengraph, "lit_image_open_graph", lambda url, config: "https://og.jpg")
+def test_enrich_publications_skips_those_that_already_have_an_image(monkeypatch) -> None:
+    monkeypatch.setattr(opengraph, "read_open_graph_image", lambda url, config: "https://og.jpg")
     records = [{"url": "https://site.com/a", "image_url": "https://deja.jpg"}]
 
-    compteurs = opengraph.enrichit_publications(records, ExtractionConfig())
+    compteurs = opengraph.enrich_publications(records, ExtractionConfig())
 
     assert compteurs["tentees"] == 0
     assert records[0]["image_url"] == "https://deja.jpg"
@@ -149,7 +149,7 @@ def test_enrichit_publications_ignore_celles_qui_ont_deja_une_image(monkeypatch)
 # --------------------------------------------------------------------------- #
 # Fakeddit (Kaggle)
 # --------------------------------------------------------------------------- #
-def test_fakeddit_lit_l_echantillon_versionne(tmp_path: Path, monkeypatch) -> None:
+def test_fakeddit_reads_the_versioned_sample(tmp_path: Path, monkeypatch) -> None:
     # Le dossier Kaggle est vidé pour que le test ne dépende pas de la présence du
     # jeu réel sur la machine : c'est bien le repli sur l'échantillon qu'on vérifie.
     monkeypatch.setattr(kaggle_fakeddit, "DOSSIER_KAGGLE", tmp_path / "vide")
@@ -164,7 +164,7 @@ def test_fakeddit_lit_l_echantillon_versionne(tmp_path: Path, monkeypatch) -> No
     assert records[0]["url"].startswith("https://redd.it/")
 
 
-def test_fakeddit_prefere_le_jeu_kaggle_reel(tmp_path: Path, monkeypatch) -> None:
+def test_fakeddit_prefers_the_real_kaggle_dataset(tmp_path: Path, monkeypatch) -> None:
     dossier = tmp_path / "kaggle"
     dossier.mkdir()
     (dossier / "all_samples.tsv").write_text(
@@ -181,7 +181,7 @@ def test_fakeddit_prefere_le_jeu_kaggle_reel(tmp_path: Path, monkeypatch) -> Non
     assert records[0]["label"] == "real"
 
 
-def test_fakeddit_ecarte_les_lignes_sans_image(tmp_path: Path, monkeypatch) -> None:
+def test_fakeddit_discards_rows_without_an_image(tmp_path: Path, monkeypatch) -> None:
     dossier = tmp_path / "kaggle"
     dossier.mkdir()
     (dossier / "all_samples.tsv").write_text(

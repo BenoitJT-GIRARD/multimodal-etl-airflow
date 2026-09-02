@@ -39,12 +39,12 @@ MESURES = {
 }
 
 
-def chemin(nom: str) -> Path:
+def path_for(nom: str) -> Path:
     """Renvoie le chemin d'un fichier de la zone de transit."""
     return INTERIM_DIR / nom
 
 
-def _dernier_artefact(dossier: Path, motif: str) -> Path | None:
+def _latest_artefact(dossier: Path, motif: str) -> Path | None:
     """Renvoie le fichier le plus récent d'un dossier correspondant à un motif.
 
     Le nom du fichier départage deux artefacts écrits dans la même seconde : tous
@@ -56,64 +56,64 @@ def _dernier_artefact(dossier: Path, motif: str) -> Path | None:
     return fichiers[0] if fichiers else None
 
 
-def depose(artefact: Path, nom: str) -> Path:
+def stage(artefact: Path, nom: str) -> Path:
     """Copie un artefact produit par une étape dans la zone de transit."""
     INTERIM_DIR.mkdir(parents=True, exist_ok=True)
-    destination = chemin(nom)
+    destination = path_for(nom)
     shutil.copy2(artefact, destination)
     logger.info("Transit : '%s' déposé pour l'étape suivante", nom)
     return destination
 
 
-def ecris_mesures(etape: str, mesures: dict[str, object]) -> Path:
+def write_metrics(etape: str, mesures: dict[str, object]) -> Path:
     """Enregistre les mesures d'une étape (durée, volumes) dans la zone de transit."""
     INTERIM_DIR.mkdir(parents=True, exist_ok=True)
-    destination = chemin(MESURES[etape])
+    destination = path_for(MESURES[etape])
     destination.write_text(
         json.dumps(mesures, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
     )
     return destination
 
 
-def lit_mesures(etape: str) -> dict[str, object]:
-    """Relit les mesures d'une étape, ou un dictionnaire vide si elles manquent."""
-    fichier = chemin(MESURES[etape])
+def read_metrics(etape: str) -> dict[str, object]:
+    """Relit les mesures d'une étape, ou un dictionnaire clear si elles manquent."""
+    fichier = path_for(MESURES[etape])
     if not fichier.exists():
         logger.warning("Transit : mesures manquantes pour l'étape '%s'", etape)
         return {}
     return json.loads(fichier.read_text(encoding="utf-8"))
 
 
-def entree_extraction() -> Path | None:
+def extraction_input() -> Path | None:
     """Renvoie le fichier brut à transformer.
 
     On privilégie le fichier déposé par la tâche d'extraction ; s'il est absent
     (tâche rejouée seule, zone de transit déjà nettoyée), on reprend la dernière
     extraction archivée.
     """
-    fichier = chemin(EXTRACTION)
+    fichier = path_for(EXTRACTION)
     if fichier.exists():
         return fichier
 
-    repli = _dernier_artefact(RAW_DIR, "raw_publications_*.json")
+    repli = _latest_artefact(RAW_DIR, "raw_publications_*.json")
     if repli is not None:
         logger.warning("Transit : '%s' absent, reprise de l'archive %s", EXTRACTION, repli.name)
     return repli
 
 
-def entree_dataset() -> Path | None:
+def dataset_input() -> Path | None:
     """Renvoie le dataset transformé à charger, avec le même mécanisme de repli."""
-    fichier = chemin(DATASET)
+    fichier = path_for(DATASET)
     if fichier.exists():
         return fichier
 
-    repli = _dernier_artefact(PROCESSED_DIR, "publications_*.parquet")
+    repli = _latest_artefact(PROCESSED_DIR, "publications_*.parquet")
     if repli is not None:
         logger.warning("Transit : '%s' absent, reprise de l'archive %s", DATASET, repli.name)
     return repli
 
 
-def vide() -> list[str]:
+def clear() -> list[str]:
     """Supprime tous les fichiers de la zone de transit et renvoie leurs noms."""
     if not INTERIM_DIR.exists():
         return []

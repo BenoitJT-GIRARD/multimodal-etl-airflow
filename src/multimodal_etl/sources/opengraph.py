@@ -32,11 +32,11 @@ def normalise_url(url: str) -> str:
     return f"https://{url}"
 
 
-def lit_image_open_graph(url: str, config: ExtractionConfig) -> str:
-    """Renvoie l'URL de l'image ``og:image`` d'une page, ou une chaîne vide.
+def read_open_graph_image(url: str, config: ExtractionConfig) -> str:
+    """Renvoie l'URL de l'image ``og:image`` d'une page, ou une chaîne clear.
 
     Toute erreur (page disparue, délai dépassé, HTML inattendu) est journalisée et
-    renvoie une chaîne vide : une publication sans image sera simplement écartée
+    renvoie une chaîne clear : une publication sans image sera simplement écartée
     plus loin, sans jamais interrompre l'extraction.
     """
     url = normalise_url(url)
@@ -61,7 +61,7 @@ def lit_image_open_graph(url: str, config: ExtractionConfig) -> str:
     return str(balise["content"]).strip()
 
 
-def enrichit_publications(
+def enrich_publications(
     records: list[dict[str, object]], config: ExtractionConfig
 ) -> dict[str, int]:
     """Complète les publications dépourvues d'image en lisant leurs métadonnées.
@@ -79,7 +79,7 @@ def enrichit_publications(
             break
 
         compteurs["tentees"] += 1
-        image_url = lit_image_open_graph(str(record.get("url", "")), config)
+        image_url = read_open_graph_image(str(record.get("url", "")), config)
         if image_url:
             record["image_url"] = image_url
             record["image_source"] = "open_graph"

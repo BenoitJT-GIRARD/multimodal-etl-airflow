@@ -32,7 +32,7 @@ from multimodal_etl.config import (
     ensure_dirs,
 )
 from multimodal_etl.extract import run_extraction
-from multimodal_etl.load import compte_publications, load_dataset
+from multimodal_etl.load import count_publications, load_dataset
 from multimodal_etl.logging_setup import get_logger
 from multimodal_etl.sources import newsdata
 from multimodal_etl.transform import run_transformation
@@ -55,7 +55,7 @@ def run_extract(config: ExtractionConfig | None = None) -> dict[str, object]:
     started = time.perf_counter()
 
     archive, report = run_extraction(config or ExtractionConfig())
-    transit.depose(archive, transit.EXTRACTION)
+    transit.stage(archive, transit.EXTRACTION)
 
     metrics = {
         "horodatage": _now(),
@@ -65,7 +65,7 @@ def run_extract(config: ExtractionConfig | None = None) -> dict[str, object]:
         "appels_api": 1 if newsdata.is_enabled() else 0,
         **report,
     }
-    transit.ecris_mesures("extraction", metrics)
+    transit.write_metrics("extraction", metrics)
     return metrics
 
 
@@ -76,13 +76,13 @@ def run_transform(config: TransformConfig | None = None) -> dict[str, object]:
     """Clean, validate and normalise the raw publications into a tidy dataset."""
     logger.info("=== STEP 2 — TRANSFORM ===")
     ensure_dirs()
-    source = transit.entree_extraction()
+    source = transit.extraction_input()
     if source is None:
         raise FileNotFoundError("No extraction available: run the extract step first.")
 
     started = time.perf_counter()
     archive, stats = run_transformation(source, config or TransformConfig())
-    transit.depose(archive, transit.DATASET)
+    transit.stage(archive, transit.DATASET)
 
     metrics = {
         "horodatage": _now(),
@@ -91,7 +91,7 @@ def run_transform(config: TransformConfig | None = None) -> dict[str, object]:
         "archive": str(archive),
         "stats": stats,
     }
-    transit.ecris_mesures("transformation", metrics)
+    transit.write_metrics("transformation", metrics)
     return metrics
 
 
@@ -102,7 +102,7 @@ def run_load(config: LoadConfig | None = None) -> dict[str, object]:
     """Insert the publications that are not already in the relational database."""
     logger.info("=== STEP 3 — LOAD ===")
     config = config or LoadConfig()
-    source = transit.entree_dataset()
+    source = transit.dataset_input()
     if source is None:
         raise FileNotFoundError("No dataset available: run the transform step first.")
 
@@ -115,9 +115,9 @@ def run_load(config: LoadConfig | None = None) -> dict[str, object]:
         "entree": str(source),
         "bilan_tables": per_table,
         "publications_ajoutees": per_table.get(config.table_name, 0),
-        "publications_en_base": compte_publications(config),
+        "publications_en_base": count_publications(config),
     }
-    transit.ecris_mesures("chargement", metrics)
+    transit.write_metrics("chargement", metrics)
     return metrics
 
 
@@ -131,9 +131,9 @@ def run_metrics(orchestrateur: str = "script") -> dict[str, object]:
     ``data/processed/runs/``.
     """
     logger.info("=== STEP 4 — METRICS ===")
-    extraction = transit.lit_mesures("extraction")
-    transformation = transit.lit_mesures("transformation")
-    loading = transit.lit_mesures("chargement")
+    extraction = transit.read_metrics("extraction")
+    transformation = transit.read_metrics("transformation")
+    loading = transit.read_metrics("chargement")
 
     images = extraction.get("images", {}) or {}
     run = {
@@ -170,5 +170,5 @@ def run_metrics(orchestrateur: str = "script") -> dict[str, object]:
 def run_cleanup() -> dict[str, object]:
     """Delete the temporary files once every one of them has been consumed."""
     logger.info("=== STEP 5 — CLEANUP ===")
-    removed = transit.vide()
+    removed = transit.clear()
     return {"fichiers_supprimes": removed, "nombre": len(removed)}

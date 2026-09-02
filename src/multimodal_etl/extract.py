@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from multimodal_etl.config import RAW_DIR, ExtractionConfig, ImageConfig, ensure_dirs
-from multimodal_etl.images import telecharge_images
+from multimodal_etl.images import download_images
 from multimodal_etl.logging_setup import get_logger
 from multimodal_etl.sources import fakenewsnet, kaggle_fakeddit, newsdata, rss
 
@@ -33,12 +33,12 @@ _CONNECTEURS = {
 }
 
 
-def _horodatage() -> str:
+def _timestamp() -> str:
     """Horodatage compact pour nommer les fichiers de sortie."""
     return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
 
-def collecte_sources(config: ExtractionConfig | None = None) -> tuple[list[dict], dict[str, int]]:
+def collect_sources(config: ExtractionConfig | None = None) -> tuple[list[dict], dict[str, int]]:
     """Lance tous les connecteurs et renvoie les publications brutes et le bilan par source.
 
     Le bilan (nombre de publications par connecteur, ``-1`` en cas d'échec) alimente
@@ -80,15 +80,15 @@ def failed_sources(bilan: dict[str, int]) -> int:
 
 def extract_all(config: ExtractionConfig | None = None) -> list[dict]:
     """Collecte les publications de toutes les sources, images comprises."""
-    publications, _ = collecte_sources(config)
-    telecharge_images(publications, ImageConfig())
+    publications, _ = collect_sources(config)
+    download_images(publications, ImageConfig())
     return publications
 
 
 def save_raw(records: list[dict], path: Path | None = None) -> Path:
     """Sauvegarde les publications brutes en JSON et renvoie le chemin du fichier."""
     ensure_dirs()
-    path = path or RAW_DIR / f"raw_publications_{_horodatage()}.json"
+    path = path or RAW_DIR / f"raw_publications_{_timestamp()}.json"
     with path.open("w", encoding="utf-8") as fichier:
         json.dump(records, fichier, ensure_ascii=False, indent=2)
     logger.info("Extraction : %d publications écrites dans %s", len(records), path)
@@ -101,15 +101,15 @@ def run_extraction(config: ExtractionConfig | None = None) -> tuple[Path, dict[s
     Renvoie le chemin du fichier brut et un compte rendu de l'exécution (bilan par
     source et statistiques de téléchargement d'images), consommé par les KPI.
     """
-    publications, bilan = collecte_sources(config)
-    compteurs_images = telecharge_images(publications, ImageConfig())
-    chemin = save_raw(publications)
+    publications, bilan = collect_sources(config)
+    compteurs_images = download_images(publications, ImageConfig())
+    path_for = save_raw(publications)
 
     compte_rendu: dict[str, object] = {
         "publications_extraites": len(publications),
         "bilan_sources": bilan,
         "failed_sources": failed_sources(bilan),
         "images": compteurs_images,
-        "fichier_brut": str(chemin),
+        "fichier_brut": str(path_for),
     }
-    return chemin, compte_rendu
+    return path_for, compte_rendu

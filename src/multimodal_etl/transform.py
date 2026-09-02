@@ -3,7 +3,7 @@
 Pipeline reproductible et journalisé qui convertit les publications brutes en un
 jeu de données propre et structuré, conforme au :mod:`multimodal_etl.schema`. Il est
 organisé en trois temps explicites — **lecture**, **traitement**, **export** — et
-modularisé en petites fonctions (``nettoie_texte``, ``valide_image``, ...) afin que
+modularisé en petites fonctions (``clean_text``, ``validate_image``, ...) afin que
 chaque transformation soit lisible, testable et tracée dans les logs.
 """
 
@@ -19,9 +19,9 @@ import pandas as pd
 import tldextract
 from bs4 import BeautifulSoup
 
-from multimodal_etl.config import PROCESSED_DIR, TransformConfig, chemin_absolu, ensure_dirs
+from multimodal_etl.config import PROCESSED_DIR, TransformConfig, absolute_path, ensure_dirs
 from multimodal_etl.logging_setup import get_logger
-from multimodal_etl.schema import COLUMNS, Publication, genere_id, genere_source_id
+from multimodal_etl.schema import COLUMNS, Publication, generate_id, generate_source_id
 
 logger = get_logger(__name__)
 
@@ -33,7 +33,7 @@ _EST_HORODATAGE = re.compile(r"\d{9,11}(\.\d+)?")
 # --------------------------------------------------------------------------- #
 # Fonctions unitaires de transformation
 # --------------------------------------------------------------------------- #
-def nettoie_texte(texte: str) -> str:
+def clean_text(texte: str) -> str:
     """Nettoie un texte : retire le HTML, décode les entités, normalise les espaces."""
     if not texte:
         return ""
@@ -42,7 +42,7 @@ def nettoie_texte(texte: str) -> str:
     return _ESPACES.sub(" ", decode).strip()
 
 
-def valide_image(image_path: str) -> bool:
+def validate_image(image_path: str) -> bool:
     """Vérifie que le fichier image annoncé existe réellement sur le disque.
 
     C'est le contrôle qui **garantit l'association texte-image** : l'étape
@@ -52,10 +52,10 @@ def valide_image(image_path: str) -> bool:
     """
     if not image_path:
         return False
-    return chemin_absolu(image_path).is_file()
+    return absolute_path(image_path).is_file()
 
 
-def extrait_domaine(url: str) -> str:
+def extract_domain(url: str) -> str:
     """Extrait le nom de domaine enregistré d'une URL (signal de fiabilité)."""
     if not url:
         return ""
@@ -75,7 +75,7 @@ def normalise_label(label: object) -> str | None:
     return "unverified"
 
 
-def normalise_langue(langue: object) -> str:
+def normalise_language(langue: object) -> str:
     """Ramène une langue au code ISO 639-1 sur deux lettres.
 
     Les sources ne s'accordent pas : le RSS déclare ``en``, NewsData.io renvoie
@@ -123,7 +123,7 @@ def normalise_date(date_brute: object) -> str | None:
 # --------------------------------------------------------------------------- #
 # Construction d'une publication normalisée
 # --------------------------------------------------------------------------- #
-def construit_publication(
+def build_publication(
     brut: dict[str, object], config: TransformConfig, ingere_le: str
 ) -> Publication | None:
     """Transforme un enregistrement brut en :class:`Publication`, ou None si invalide.
@@ -132,8 +132,8 @@ def construit_publication(
     multimodal strict) absence de fichier image — ce qui garantit l'association
     texte-image attendue par le cas d'usage.
     """
-    titre = nettoie_texte(str(brut.get("title", "")))
-    texte = nettoie_texte(str(brut.get("text", "")))
+    titre = clean_text(str(brut.get("title", "")))
+    texte = clean_text(str(brut.get("text", "")))
     url = str(brut.get("url", "")).strip()
     image_url = str(brut.get("image_url", "")).strip()
     image_path = str(brut.get("image_path", "")).strip()
@@ -143,18 +143,18 @@ def construit_publication(
     if len(texte) < config.min_text_length:
         return None
 
-    a_une_image = valide_image(image_path)
+    a_une_image = validate_image(image_path)
     if config.require_image and not a_une_image:
         return None
 
     source = str(brut.get("source", "inconnu"))
     return Publication(
-        id=genere_id(url, titre),
-        source_id=genere_source_id(source),
+        id=generate_id(url, titre),
+        source_id=generate_source_id(source),
         source=source,
         source_type=str(brut.get("source_type", "inconnu")),
         access_method=str(brut.get("access_method", "inconnu")),
-        domain=extrait_domaine(url),
+        domain=extract_domain(url),
         title=titre,
         text=texte,
         text_length=len(texte),
@@ -163,7 +163,7 @@ def construit_publication(
         image_source=str(brut.get("image_source", "aucune")) if a_une_image else "aucune",
         has_image=a_une_image,
         url=url,
-        language=normalise_langue(brut.get("language")),
+        language=normalise_language(brut.get("language")),
         ingested_at=ingere_le,
         published_at=normalise_date(brut.get("published_at")),
         label=normalise_label(brut.get("label")),
@@ -174,7 +174,7 @@ def construit_publication(
 # --------------------------------------------------------------------------- #
 # Pipeline : lecture -> traitement -> export
 # --------------------------------------------------------------------------- #
-def lit_brut(path: Path) -> list[dict[str, object]]:
+def read_raw(path: Path) -> list[dict[str, object]]:
     """Étape 1 — lecture : charge les publications brutes depuis un fichier JSON."""
     logger.info("Transformation : lecture du fichier brut %s", path)
     with path.open("r", encoding="utf-8") as fichier:
@@ -183,7 +183,7 @@ def lit_brut(path: Path) -> list[dict[str, object]]:
     return records
 
 
-def traite(
+def process(
     records: list[dict[str, object]], config: TransformConfig
 ) -> tuple[pd.DataFrame, dict[str, int]]:
     """Étape 2 — traitement : nettoie, valide, normalise, déduplique.
@@ -194,7 +194,7 @@ def traite(
     ingere_le = datetime.now(UTC).isoformat(timespec="seconds")
     total_brut = len(records)
 
-    publications = [construit_publication(brut, config, ingere_le) for brut in records]
+    publications = [build_publication(brut, config, ingere_le) for brut in records]
     valides = [pub for pub in publications if pub is not None]
     logger.info(
         "Transformation : %d/%d publications valides après nettoyage", len(valides), total_brut
@@ -220,7 +220,7 @@ def traite(
     return df, stats
 
 
-def exporte(
+def export_dataset(
     df: pd.DataFrame,
     config: TransformConfig,
     stats: dict[str, int] | None = None,
@@ -260,7 +260,7 @@ def run_transformation(
     Renvoie le chemin du dataset transformé et les statistiques de l'exécution.
     """
     config = config or TransformConfig()
-    records = lit_brut(raw_path)
-    df, stats = traite(records, config)
-    sortie = exporte(df, config, stats, output_path)
+    records = read_raw(raw_path)
+    df, stats = process(records, config)
+    sortie = export_dataset(df, config, stats, output_path)
     return sortie, stats

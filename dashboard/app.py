@@ -22,26 +22,26 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from multimodal_etl.config import chemin_absolu  # noqa: E402
+from multimodal_etl.config import absolute_path  # noqa: E402
 from multimodal_etl.kpi import (  # noqa: E402
-    charge_dernier_dataset,
     compute_kpis,
-    evalue_seuils,
-    historique_runs,
+    evaluate_thresholds,
+    load_latest_dataset,
+    run_history,
 )
 
 st.set_page_config(page_title="Multimodal ETL — KPI du pipeline ETL", page_icon="📊", layout="wide")
 
-# Pastille de couleur associée à chaque statut, pour une lecture immédiate.
+# Pastille de couleur associée à chaque status_for, pour une lecture immédiate.
 PASTILLES = {"vert": "🟢", "orange": "🟠", "rouge": "🔴"}
 
 
-def carte(colonne, libelle: str, valeur: str, aide: str) -> None:
+def kpi_card(colonne, libelle: str, valeur: str, aide: str) -> None:
     """Affiche une carte KPI avec une infobulle explicative."""
     colonne.metric(libelle, valeur, help=aide)
 
 
-def section_statut(kpis: dict) -> None:
+def section_status(kpis: dict) -> None:
     """Confronte les indicateurs surveillés aux seuils du plan de monitoring."""
     st.subheader("État du pipeline")
     st.caption(
@@ -49,7 +49,7 @@ def section_statut(kpis: dict) -> None:
         "Vert : situation normale. Orange : à surveiller. Rouge : intervention requise."
     )
 
-    evaluations = evalue_seuils(kpis)
+    evaluations = evaluate_thresholds(kpis)
     tableau = pd.DataFrame(
         [
             {
@@ -67,34 +67,34 @@ def section_statut(kpis: dict) -> None:
     alertes = [e for e in evaluations if e["statut"] == "rouge"]
     if alertes:
         st.error(
-            "Seuil critique franchi : "
+            "Threshold critique franchi : "
             + ", ".join(f"{a['libelle']} ({a['valeur']})" for a in alertes)
         )
 
 
-def section_qualite(qualite: dict) -> None:
+def section_quality(qualite: dict) -> None:
     """Cartes de qualité des données."""
     st.subheader("Qualité des données")
     c1, c2, c3, c4 = st.columns(4)
-    carte(
+    kpi_card(
         c1,
         "Taux de validité",
         f"{qualite['taux_validite_pct']} %",
         "Part des publications collectées qui passent tous les contrôles de qualité.",
     )
-    carte(
+    kpi_card(
         c2,
         "Association texte-image",
         f"{qualite['taux_association_texte_image_pct']} %",
         "Part des publications retenues dont l'image est bien présente sur le disque.",
     )
-    carte(
+    kpi_card(
         c3,
         "Publications datées",
         f"{qualite['taux_date_connue_pct']} %",
         "Part des publications dont on connaît la date : sans elle, pas de suivi de fraîcheur.",
     )
-    carte(
+    kpi_card(
         c4,
         "Doublons écartés",
         f"{qualite['taux_doublons_pct']} %",
@@ -106,26 +106,26 @@ def section_volume(volume: dict, fraicheur: dict, performance: dict) -> None:
     """Cartes de volume, de fraîcheur et de coût."""
     st.subheader("Volume, fraîcheur et coût")
     c1, c2, c3, c4 = st.columns(4)
-    carte(
+    kpi_card(
         c1,
         "Publications du jeu",
         str(volume["nb_publications"]),
         "Nombre de publications propres produites par la dernière exécution.",
     )
-    carte(
+    kpi_card(
         c2,
         "Total accumulé en base",
         str(performance["publications_en_base"]),
         "Le jeu de données grossit à chaque exécution : seules les nouveautés sont ajoutées.",
     )
-    carte(
+    kpi_card(
         c3,
         "Âge médian",
         f"{fraicheur['age_median_heures']} h",
         "Ancienneté médiane des publications ingérées. Un détecteur de fake news a "
         "besoin de contenus récents.",
     )
-    carte(
+    kpi_card(
         c4,
         "Disque occupé par les images",
         f"{performance['poids_images_mo']} Mo",
@@ -137,25 +137,25 @@ def section_performance(performance: dict) -> None:
     """Cartes de rapidité et de coût d'exécution."""
     st.subheader("Performance de l'exécution")
     c1, c2, c3, c4 = st.columns(4)
-    carte(
+    kpi_card(
         c1,
         "Durée totale",
         f"{performance['duree_totale_sec']} s",
         "Temps total du pipeline : extraction, transformation et chargement.",
     )
-    carte(
+    kpi_card(
         c2,
         "Débit",
         f"{performance['debit_publications_par_sec']} /s",
         "Nombre de publications traitées par seconde.",
     )
-    carte(
+    kpi_card(
         c3,
         "Apport de l'exécution",
         f"{performance['taux_nouveaute_pct']} %",
         "Part des publications collectées qui n'étaient pas déjà en base.",
     )
-    carte(
+    kpi_card(
         c4,
         "Appels d'API consommés",
         str(performance["appels_api_consommes"]),
@@ -163,7 +163,7 @@ def section_performance(performance: dict) -> None:
     )
 
 
-def section_graphiques(volume: dict, performance: dict) -> None:
+def section_charts(volume: dict, performance: dict) -> None:
     """Répartition des sources, méthodes d'accès et temps par étape."""
     g1, g2 = st.columns(2)
 
@@ -198,9 +198,9 @@ def section_graphiques(volume: dict, performance: dict) -> None:
         st.plotly_chart(figure, use_container_width=True)
 
 
-def section_historique() -> None:
+def section_history() -> None:
     """Évolution des exécutions dans le temps."""
-    historique = historique_runs()
+    historique = run_history()
     if historique.empty or len(historique) < 2:
         st.info(
             "L'historique apparaîtra dès la deuxième exécution du pipeline : il permet "
@@ -236,7 +236,7 @@ def section_historique() -> None:
         st.plotly_chart(figure, use_container_width=True)
 
 
-def section_apercu(df: pd.DataFrame) -> None:
+def section_overview(df: pd.DataFrame) -> None:
     """Composition du jeu de données et échantillon concret."""
     st.subheader("Ce que le pipeline produit")
 
@@ -260,9 +260,11 @@ def section_apercu(df: pd.DataFrame) -> None:
     apercu = df[df["has_image"]].head(6)
     colonnes_images = st.columns(6)
     for colonne, (_, publication) in zip(colonnes_images, apercu.iterrows(), strict=False):
-        chemin = chemin_absolu(publication["image_path"])
-        if chemin.is_file():
-            colonne.image(str(chemin), caption=publication["title"][:60], use_container_width=True)
+        path_for = absolute_path(publication["image_path"])
+        if path_for.is_file():
+            colonne.image(
+                str(path_for), caption=publication["title"][:60], use_container_width=True
+            )
 
 
 def main() -> None:
@@ -273,7 +275,7 @@ def main() -> None:
         "le détecteur de fake news en données multimodales (texte + image)."
     )
 
-    df, stats, run = charge_dernier_dataset()
+    df, stats, run = load_latest_dataset()
     if df.empty:
         st.warning(
             "Aucun jeu de données trouvé. Lancez d'abord le pipeline : "
@@ -283,13 +285,13 @@ def main() -> None:
 
     kpis = compute_kpis(df, stats, run)
 
-    section_statut(kpis)
-    section_qualite(kpis["qualite"])
+    section_status(kpis)
+    section_quality(kpis["qualite"])
     section_volume(kpis["volume"], kpis["fraicheur"], kpis["performance"])
     section_performance(kpis["performance"])
-    section_graphiques(kpis["volume"], kpis["performance"])
-    section_historique()
-    section_apercu(df)
+    section_charts(kpis["volume"], kpis["performance"])
+    section_history()
+    section_overview(df)
 
     st.caption(
         f"Dernière exécution : {run.get('run_at', 'inconnue')} "
