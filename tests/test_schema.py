@@ -11,7 +11,7 @@ def _sample_publication() -> Publication:
         source_id="src",
         source="rss:test",
         source_type="rss",
-        access_method="flux_rss",
+        access_method="rss_feed",
         domain="a.com",
         title="Title",
         text="Text",

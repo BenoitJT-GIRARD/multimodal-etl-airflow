@@ -57,9 +57,9 @@ def test_fetch_rss_feed_normalises_the_fields(monkeypatch) -> None:
     assert len(records) == 2
     premier = records[0]
     assert premier["source"] == "rss:presse_test"
-    assert premier["access_method"] == "flux_rss"
+    assert premier["access_method"] == "rss_feed"
     assert premier["image_source"] == "native"
-    assert records[1]["image_source"] == "aucune"
+    assert records[1]["image_source"] == "none"
 
 
 def test_fetch_rss_feed_survives_an_unreachable_feed(monkeypatch) -> None:
@@ -106,7 +106,7 @@ def test_build_fakenewsnet_record_adds_the_schema_and_the_label() -> None:
     record = fakenewsnet._build_record(ligne, "politifact", "fake")
 
     assert record["source"] == "fakenewsnet:politifact"
-    assert record["access_method"] == "telechargement_github"
+    assert record["access_method"] == "github_download"
     assert record["url"] == "https://exemple.com/article"
     assert record["label"] == "fake"
     assert record["image_url"] == ""  # l'image sera cherchée via Open Graph
@@ -131,7 +131,7 @@ def test_enrich_publications_respects_the_cap(monkeypatch) -> None:
         records, ExtractionConfig(max_open_graph_enrichments=2)
     )
 
-    assert compteurs == {"tentees": 2, "trouvees": 2}
+    assert compteurs == {"attempted": 2, "found": 2}
     assert records[0]["image_source"] == "open_graph"
     assert records[4]["image_url"] == ""
 
@@ -142,7 +142,7 @@ def test_enrich_publications_skips_those_that_already_have_an_image(monkeypatch)
 
     compteurs = opengraph.enrich_publications(records, ExtractionConfig())
 
-    assert compteurs["tentees"] == 0
+    assert compteurs["attempted"] == 0
     assert records[0]["image_url"] == "https://deja.jpg"
 
 
@@ -158,7 +158,7 @@ def test_fakeddit_reads_the_versioned_sample(tmp_path: Path, monkeypatch) -> Non
 
     assert len(records) == 5
     assert records[0]["source"] == "fakeddit"
-    assert records[0]["access_method"] == "telechargement_kaggle"
+    assert records[0]["access_method"] == "kaggle_download"
     assert records[0]["image_url"].startswith("https://upload.wikimedia.org/")
     assert records[0]["label"] in {"real", "fake"}
     assert records[0]["url"].startswith("https://redd.it/")

@@ -14,10 +14,10 @@ renderings are `data_schema.mmd`, `data_schema.png` and `data_schema.pdf`.
 
 ```mermaid
 erDiagram
-    SOURCE ||--o{ PUBLICATION : publie
-    PUBLICATION ||--|| CONTENU_TEXTE : porte
-    PUBLICATION ||--|| CONTENU_IMAGE : associe
-    PUBLICATION ||--o| LABEL : annote
+    SOURCE ||--o{ PUBLICATION : publishes
+    PUBLICATION ||--|| TEXT_CONTENT : carries
+    PUBLICATION ||--|| IMAGE_CONTENT : pairs
+    PUBLICATION ||--o| LABEL : annotates
 ```
 
 **PUBLICATION** sits at the heart of the model. It **carries a text** and **pairs an
@@ -47,9 +47,9 @@ every source provides one.
 | `source_id` | string | KEY | yes | Primary key of the source. |
 | `source` | string | METADATA | yes | Precise source: `rss:bbc_news`, `newsdata`, `fakenewsnet:politifact`… |
 | `source_type` | string | METADATA | yes | Family: `rss`, `api` or `dataset`. |
-| `access_method` | string | METADATA | yes | Access method: `flux_rss`, `api_rest`, `telechargement_github`, `telechargement_kaggle`. |
+| `access_method` | string | METADATA | yes | Access method: `rss_feed`, `rest_api`, `github_download`, `kaggle_download`. |
 
-### CONTENU_TEXTE
+### TEXT_CONTENT
 
 | Field | Type | Role | Required | Description |
 |---|---|---|:---:|---|
@@ -57,7 +57,7 @@ every source provides one.
 | `text` | string | NLP | yes | Cleaned body or summary — the classification input. |
 | `text_length` | integer | METADATA | yes | Length of the cleaned text: a feature and a quality check. |
 
-### CONTENU_IMAGE
+### IMAGE_CONTENT
 
 | Field | Type | Role | Required | Description |
 |---|---|---|:---:|---|
@@ -105,8 +105,8 @@ The conceptual model above translates into one table per entity, joined by `id` 
 |---|---|---|---|
 | SOURCE | `source` | `source_id` | — |
 | PUBLICATION | `publication` | `id` | `source_id` → `source` |
-| CONTENU_TEXTE | `contenu_texte` | `id` | `id` → `publication` |
-| CONTENU_IMAGE | `contenu_image` | `id` | `id` → `publication` |
+| TEXT_CONTENT | `text_content` | `id` | `id` → `publication` |
+| IMAGE_CONTENT | `image_content` | `id` | `id` → `publication` |
 | LABEL | `label` | `id` | `id` → `publication` |
 
 One extra table, `publications`, holds the whole thing **flat**: it is the one consumed by

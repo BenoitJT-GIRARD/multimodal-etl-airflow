@@ -39,7 +39,7 @@ def main() -> None:
     run_extract()
     run_transform()
     run_load()
-    run = run_metrics(orchestrateur="script")
+    run = run_metrics(orchestrator="script")
     run_cleanup()
 
     elapsed = sum(run["durations_sec"].values())
@@ -49,7 +49,7 @@ def main() -> None:
     print(f"[ok] new in database        : {run['rows_loaded']}")
     print(f"[ok] total in database      : {run['rows_in_db']}")
     print(f"[ok] total duration         : {elapsed:.2f} s")
-    print(f"[ok] run record             : {run['fichier']}")
+    print(f"[ok] run record             : {run['file']}")
 
 
 if __name__ == "__main__":

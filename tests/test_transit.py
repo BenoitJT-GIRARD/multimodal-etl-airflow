@@ -75,11 +75,11 @@ def test_dataset_input_falls_back_to_the_last_archive(tmp_path: Path, monkeypatc
 
 def test_metrics_round_trip(tmp_path: Path, monkeypatch) -> None:
     _prepare(tmp_path, monkeypatch)
-    transit.write_metrics("extract", {"duree_sec": 1.5, "publications_extraites": 10})
+    transit.write_metrics("extract", {"duration_sec": 1.5, "publications_extracted": 10})
 
     metrics = transit.read_metrics("extract")
 
-    assert metrics["publications_extraites"] == 10
+    assert metrics["publications_extracted"] == 10
 
 
 def test_read_metrics_returns_an_empty_dict_when_absent(tmp_path: Path, monkeypatch) -> None:
@@ -90,7 +90,7 @@ def test_read_metrics_returns_an_empty_dict_when_absent(tmp_path: Path, monkeypa
 def test_clear_deletes_every_temporary_file(tmp_path: Path, monkeypatch) -> None:
     interim, _, _ = _prepare(tmp_path, monkeypatch)
     (interim / transit.EXTRACTION).write_text("[]", encoding="utf-8")
-    transit.write_metrics("extract", {"duree_sec": 1.0})
+    transit.write_metrics("extract", {"duration_sec": 1.0})
 
     removed = transit.clear()
 
@@ -122,4 +122,4 @@ def test_pipeline_load_step_delegates_to_the_loader():
 
     loader.assert_called_once()
     assert loader.call_args.args[0] == dataset
-    assert metrics["publications_en_base"] == 7
+    assert metrics["publications_in_db"] == 7

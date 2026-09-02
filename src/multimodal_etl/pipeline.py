@@ -58,11 +58,11 @@ def run_extract(config: ExtractionConfig | None = None) -> dict[str, object]:
     transit.stage(archive, transit.EXTRACTION)
 
     metrics = {
-        "horodatage": _now(),
-        "duree_sec": round(time.perf_counter() - started, 2),
+        "at": _now(),
+        "duration_sec": round(time.perf_counter() - started, 2),
         "archive": str(archive),
         # One API call is spent per run while the NewsData.io source is enabled.
-        "appels_api": 1 if newsdata.is_enabled() else 0,
+        "api_calls": 1 if newsdata.is_enabled() else 0,
         **report,
     }
     transit.write_metrics("extract", metrics)
@@ -85,9 +85,9 @@ def run_transform(config: TransformConfig | None = None) -> dict[str, object]:
     transit.stage(archive, transit.DATASET)
 
     metrics = {
-        "horodatage": _now(),
-        "duree_sec": round(time.perf_counter() - started, 2),
-        "entree": str(source),
+        "at": _now(),
+        "duration_sec": round(time.perf_counter() - started, 2),
+        "input": str(source),
         "archive": str(archive),
         "stats": stats,
     }
@@ -110,12 +110,12 @@ def run_load(config: LoadConfig | None = None) -> dict[str, object]:
     per_table = load_dataset(source, config)
 
     metrics = {
-        "horodatage": _now(),
-        "duree_sec": round(time.perf_counter() - started, 2),
-        "entree": str(source),
-        "bilan_tables": per_table,
-        "publications_ajoutees": per_table.get(config.table_name, 0),
-        "publications_en_base": count_publications(config),
+        "at": _now(),
+        "duration_sec": round(time.perf_counter() - started, 2),
+        "input": str(source),
+        "per_table": per_table,
+        "publications_added": per_table.get(config.table_name, 0),
+        "publications_in_db": count_publications(config),
     }
     transit.write_metrics("load", metrics)
     return metrics
@@ -124,7 +124,7 @@ def run_load(config: LoadConfig | None = None) -> dict[str, object]:
 # --------------------------------------------------------------------------- #
 # Step 4 — run metrics
 # --------------------------------------------------------------------------- #
-def run_metrics(orchestrateur: str = "script") -> dict[str, object]:
+def run_metrics(orchestrator: str = "script") -> dict[str, object]:
     """Consolidate the metrics of the first three steps into one run record.
 
     That record is the only history the KPI dashboard needs: one per run, kept under
@@ -138,17 +138,17 @@ def run_metrics(orchestrateur: str = "script") -> dict[str, object]:
     images = extraction.get("images", {}) or {}
     run = {
         "run_at": _now(),
-        "orchestrateur": orchestrateur,
+        "orchestrator": orchestrator,
         "durations_sec": {
-            "extract": extraction.get("duree_sec", 0.0),
-            "transform": transformation.get("duree_sec", 0.0),
-            "load": loading.get("duree_sec", 0.0),
+            "extract": extraction.get("duration_sec", 0.0),
+            "transform": transformation.get("duration_sec", 0.0),
+            "load": loading.get("duration_sec", 0.0),
         },
-        "rows_extracted": extraction.get("publications_extraites", 0),
-        "rows_loaded": loading.get("publications_ajoutees", 0),
-        "rows_in_db": loading.get("publications_en_base", 0),
-        "api_calls": extraction.get("appels_api", 0),
-        "bilan_sources": extraction.get("bilan_sources", {}),
+        "rows_extracted": extraction.get("publications_extracted", 0),
+        "rows_loaded": loading.get("publications_added", 0),
+        "rows_in_db": loading.get("publications_in_db", 0),
+        "api_calls": extraction.get("api_calls", 0),
+        "per_source": extraction.get("per_source", {}),
         "failed_sources": extraction.get("failed_sources", 0),
         "images": images,
         "stats": transformation.get("stats", {}),
@@ -160,7 +160,7 @@ def run_metrics(orchestrateur: str = "script") -> dict[str, object]:
     record.write_text(json.dumps(run, ensure_ascii=False, indent=2), encoding="utf-8")
     logger.info("Metrics: run record written to %s", record)
 
-    run["fichier"] = str(record)
+    run["file"] = str(record)
     return run
 
 
@@ -171,4 +171,4 @@ def run_cleanup() -> dict[str, object]:
     """Delete the temporary files once every one of them has been consumed."""
     logger.info("=== STEP 5 — CLEANUP ===")
     removed = transit.clear()
-    return {"fichiers_supprimes": removed, "nombre": len(removed)}
+    return {"files_removed": removed, "count": len(removed)}

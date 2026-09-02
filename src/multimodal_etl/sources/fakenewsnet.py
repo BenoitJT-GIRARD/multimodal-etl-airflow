@@ -83,13 +83,13 @@ def _build_record(row: dict[str, str], organisation: str, label: str) -> dict[st
     return {
         "source": f"fakenewsnet:{organisation}",
         "source_type": "dataset",
-        "access_method": "telechargement_github",
+        "access_method": "github_download",
         "title": row.get("title", ""),
         # The CSVs do not expose the article body: the title carries the text signal.
         "text": row.get("title", ""),
         "url": opengraph.normalise_url(row.get("news_url", "")),
         "image_url": "",
-        "image_source": "aucune",
+        "image_source": "none",
         "published_at": "",
         "language": "en",
         "label": label,

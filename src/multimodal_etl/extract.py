@@ -105,10 +105,10 @@ def run_extraction(config: ExtractionConfig | None = None) -> tuple[Path, dict[s
     path = save_raw(publications)
 
     report: dict[str, object] = {
-        "publications_extraites": len(publications),
-        "bilan_sources": tally,
+        "publications_extracted": len(publications),
+        "per_source": tally,
         "failed_sources": failed_sources(tally),
         "images": image_counts,
-        "fichier_brut": str(path),
+        "raw_file": str(path),
     }
     return path, report

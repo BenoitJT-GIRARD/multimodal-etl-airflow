@@ -27,7 +27,7 @@ def _dataset(ids: tuple[str, ...]) -> pd.DataFrame:
                 "source_id": "src_rss" if index % 2 == 0 else "src_api",
                 "source": "rss:bbc" if index % 2 == 0 else "newsdata",
                 "source_type": "rss" if index % 2 == 0 else "api",
-                "access_method": "flux_rss" if index % 2 == 0 else "api_rest",
+                "access_method": "rss_feed" if index % 2 == 0 else "rest_api",
                 "domain": "bbc.co.uk",
                 "title": f"Title {index}",
                 "text": f"Text {index}",
@@ -54,8 +54,8 @@ def _config(tmp_path: Path) -> LoadConfig:
 def test_split_into_tables_distributes_every_field() -> None:
     tables = split_into_tables(_dataset(("a", "b")))
 
-    assert set(tables) == {"source", "publication", "contenu_texte", "contenu_image", "label"}
-    assert list(tables["contenu_texte"].columns) == ["id", "title", "text", "text_length"]
+    assert set(tables) == {"source", "publication", "text_content", "image_content", "label"}
+    assert list(tables["text_content"].columns) == ["id", "title", "text", "text_length"]
     assert "source_id" in tables["publication"].columns  # the join key is there
 
 
@@ -93,7 +93,7 @@ def test_loading_is_incremental(tmp_path: Path) -> None:
     assert first["publications"] == 2
     # Only publication "c" is new; "b" is already in the database.
     assert second["publications"] == 1
-    assert second["deja_presentes"] == 1
+    assert second["already_present"] == 1
     assert count_publications(config) == 3
 
 
@@ -117,8 +117,8 @@ def test_the_join_keys_connect_the_tables(tmp_path: Path) -> None:
                 "SELECT p.id, s.source, t.title, i.image_path "
                 "FROM publication p "
                 "JOIN source s ON s.source_id = p.source_id "
-                "JOIN contenu_texte t ON t.id = p.id "
-                "JOIN contenu_image i ON i.id = p.id "
+                "JOIN text_content t ON t.id = p.id "
+                "JOIN image_content i ON i.id = p.id "
                 "ORDER BY p.id"
             )
         ).fetchall()

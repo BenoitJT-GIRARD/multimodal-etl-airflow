@@ -98,7 +98,7 @@ stable volume**.
 
 | | |
 |---|---|
-| Access | `flux_rss` — `feedparser`, no key |
+| Access | `rss_feed` — `feedparser`, no key |
 | Modalities | title + summary, image in `media:content`, `enclosure` or `<img>` |
 | Format | RSS / XML |
 | Language | English (The Guardian, BBC News, ABC News) |
@@ -115,7 +115,7 @@ next**. The connector looks for it in four locations in turn before giving up.
 
 | | |
 |---|---|
-| Access | `api_rest` — `requests` on `/api/1/news`, parameter `image=1` |
+| Access | `rest_api` — `requests` on `/api/1/news`, parameter `image=1` |
 | Modalities | `title`, `description`, `content`, `image_url` |
 | Format | JSON |
 | Language | multilingual (set to `en`) |
@@ -130,7 +130,7 @@ itself cleanly when no key is supplied. Quota consumption is tracked as a cost K
 
 | | |
 |---|---|
-| Access | `telechargement_github` — the CSVs are published in the clear in the official repository |
+| Access | `github_download` — the CSVs are published in the clear in the official repository |
 | Modalities | title + article URL; **no image in the files** |
 | Format | CSV (4 files: PolitiFact and GossipCop, `fake` and `real`) |
 | Language | English |
@@ -156,7 +156,7 @@ The files are cached under `data/raw/fakenewsnet/`: later runs no longer need th
 
 | | |
 |---|---|
-| Access | `telechargement_kaggle` — export downloaded once, read locally |
+| Access | `kaggle_download` — export downloaded once, read locally |
 | Modalities | `clean_title` + `image_url` (column `hasImage`) |
 | Format | TSV |
 | Language | English |

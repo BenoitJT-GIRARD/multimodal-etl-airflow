@@ -40,8 +40,8 @@ logger = get_logger(__name__)
 TABLES: dict[str, str] = {
     "SOURCE": "source",
     "PUBLICATION": "publication",
-    "CONTENU_TEXTE": "contenu_texte",
-    "CONTENU_IMAGE": "contenu_image",
+    "TEXT_CONTENT": "text_content",
+    "IMAGE_CONTENT": "image_content",
     "LABEL": "label",
 }
 
@@ -147,11 +147,11 @@ def write_to_database(df: pd.DataFrame, config: LoadConfig | None = None) -> dic
     finally:
         engine.dispose()
 
-    per_table["deja_presentes"] = len(df) - per_table.get(config.table_name, 0)
+    per_table["already_present"] = len(df) - per_table.get(config.table_name, 0)
     logger.info(
         "Load: %d new publications, %d already present",
         per_table.get(config.table_name, 0),
-        per_table["deja_presentes"],
+        per_table["already_present"],
     )
     return per_table
 

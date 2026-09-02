@@ -36,7 +36,7 @@ def test_the_diagram_covers_the_whole_schema() -> None:
 
 def test_the_monitoring_plan_documents_every_threshold() -> None:
     plan = _read("monitoring_plan.md")
-    missing = [t.libelle for t in THRESHOLDS.values() if t.libelle not in plan]
+    missing = [t.label for t in THRESHOLDS.values() if t.label not in plan]
     assert not missing, f"thresholds absent from the monitoring plan: {missing}"
 
 

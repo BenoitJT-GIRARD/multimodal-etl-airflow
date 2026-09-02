@@ -66,7 +66,7 @@ def _build_record(row: dict[str, str]) -> dict[str, object]:
         # monitoring.
         "source": "fakeddit",
         "source_type": "dataset",
-        "access_method": "telechargement_kaggle",
+        "access_method": "kaggle_download",
         "title": title,
         # Fakeddit publishes no article body: the title is the text signal.
         "text": title,
@@ -74,7 +74,7 @@ def _build_record(row: dict[str, str]) -> dict[str, object]:
         # which serves as the traceability and deduplication key.
         "url": f"https://redd.it/{row.get('id', '')}",
         "image_url": image_url,
-        "image_source": "native" if image_url else "aucune",
+        "image_source": "native" if image_url else "none",
         "published_at": row.get("created_utc", ""),
         "language": "en",
         "label": _LABELS.get(row.get("2_way_label", "").strip(), "unverified"),

@@ -28,7 +28,7 @@ def main() -> None:
         print(f"[error] {error}")
         sys.exit(1)
 
-    print(f"[ok] file read          : {metrics['entree']}")
+    print(f"[ok] file read          : {metrics['input']}")
     print(f"[ok] dataset written    : {metrics['archive']}")
     print(f"[ok] statistics         : {metrics['stats']}")
 

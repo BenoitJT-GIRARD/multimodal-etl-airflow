@@ -14,10 +14,10 @@ fichier image téléchargé côte à côte** :
 
 | Source | Accès | Apport |
 |---|---|---|
-| Flux RSS (The Guardian, BBC, ABC News) | `flux_rss` | volume et fraîcheur |
-| API NewsData.io | `api_rest` | actualité structurée |
-| FakeNewsNet | `telechargement_github` | vérité terrain académique |
-| Fakeddit | `telechargement_kaggle` | volume multimodal annoté |
+| Flux RSS (The Guardian, BBC, ABC News) | `rss_feed` | volume et fraîcheur |
+| API NewsData.io | `rest_api` | actualité structurée |
+| FakeNewsNet | `github_download` | vérité terrain académique |
+| Fakeddit | `kaggle_download` | volume multimodal annoté |
 
 Les CSV de FakeNewsNet ne contiennent pas d'image : le pipeline la retrouve dans les
 métadonnées Open Graph de l'article. Toutes les images sont téléchargées, validées par
@@ -72,7 +72,7 @@ uv run streamlit run dashboard/app.py        # 4. tableau de bord KPI
 Une étape relancée seule reprend le dernier artefact archivé si le fichier temporaire de
 l'étape précédente a été nettoyé.
 
-Orchestration Airflow — voir `docs/runbook_airflow.md` :
+Orchestration Airflow — voir `docs/airflow_runbook.md` :
 
 ```powershell
 docker compose -f docker/docker-compose.airflow.yaml build

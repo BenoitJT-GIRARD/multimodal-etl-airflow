@@ -29,12 +29,12 @@ RAW_KEYS: tuple[str, ...] = (
 
 # Allowed values for ``access_method``.
 ACCESS_METHODS: tuple[str, ...] = (
-    "flux_rss",
-    "api_rest",
-    "telechargement_github",
-    "telechargement_kaggle",
+    "rss_feed",
+    "rest_api",
+    "github_download",
+    "kaggle_download",
 )
 
 # Allowed values for ``image_source``: the image is either supplied directly by the
 # source, or found in the article's Open Graph metadata.
-IMAGE_ORIGINS: tuple[str, ...] = ("native", "open_graph", "aucune")
+IMAGE_ORIGINS: tuple[str, ...] = ("native", "open_graph", "none")

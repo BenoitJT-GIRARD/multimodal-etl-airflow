@@ -58,12 +58,12 @@ def _parse_entry(entry: feedparser.FeedParserDict, source_name: str) -> dict[str
     return {
         "source": f"rss:{source_name}",
         "source_type": "rss",
-        "access_method": "flux_rss",
+        "access_method": "rss_feed",
         "title": entry.get("title", ""),
         "text": entry.get("summary", ""),
         "url": entry.get("link", ""),
         "image_url": image_url,
-        "image_source": "native" if image_url else "aucune",
+        "image_source": "native" if image_url else "none",
         "published_at": entry.get("published", ""),
         "language": "en",
         # General news feeds carry no true/false label.

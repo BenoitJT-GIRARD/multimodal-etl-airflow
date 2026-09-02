@@ -29,9 +29,9 @@ def main() -> None:
     metrics = run_extract()
     images = metrics["images"]
 
-    print(f"[ok] publications extracted : {metrics['publications_extraites']}")
-    print(f"[ok] per source             : {metrics['bilan_sources']}")
-    print(f"[ok] images downloaded      : {images['reussies']} (failed: {images['echouees']})")
+    print(f"[ok] publications extracted : {metrics['publications_extracted']}")
+    print(f"[ok] per source             : {metrics['per_source']}")
+    print(f"[ok] images downloaded      : {images['succeeded']} (failed: {images['failed']})")
     print(f"[ok] raw file               : {metrics['archive']}")
 
 

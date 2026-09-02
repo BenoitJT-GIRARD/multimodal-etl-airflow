@@ -33,10 +33,10 @@ def main() -> None:
         print(f"[error] {error}")
         sys.exit(1)
 
-    print(f"[ok] dataset loaded         : {metrics['entree']}")
-    print(f"[ok] publications added     : {metrics['publications_ajoutees']}")
-    print(f"[ok] publications in database: {metrics['publications_en_base']}")
-    print(f"[ok] per table              : {metrics['bilan_tables']}")
+    print(f"[ok] dataset loaded         : {metrics['input']}")
+    print(f"[ok] publications added     : {metrics['publications_added']}")
+    print(f"[ok] publications in database: {metrics['publications_in_db']}")
+    print(f"[ok] per table              : {metrics['per_table']}")
 
 
 if __name__ == "__main__":

@@ -68,25 +68,25 @@ def enrich_publications(
     The number of pages queried is capped by ``config.max_open_graph_enrichments``: every
     enrichment costs one HTTP request, and we want a pipeline run to stay short.
     """
-    counts = {"tentees": 0, "trouvees": 0}
+    counts = {"attempted": 0, "found": 0}
 
     for record in records:
         if record.get("image_url"):
             continue
-        if counts["tentees"] >= config.max_open_graph_enrichments:
+        if counts["attempted"] >= config.max_open_graph_enrichments:
             break
 
-        counts["tentees"] += 1
+        counts["attempted"] += 1
         image_url = read_open_graph_image(str(record.get("url", "")), config)
         if image_url:
             record["image_url"] = image_url
             record["image_source"] = "open_graph"
-            counts["trouvees"] += 1
+            counts["found"] += 1
 
-    if counts["tentees"]:
+    if counts["attempted"]:
         logger.info(
             "Open Graph: %d images recovered across %d articles visited",
-            counts["trouvees"],
-            counts["tentees"],
+            counts["found"],
+            counts["attempted"],
         )
     return counts

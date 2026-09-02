@@ -13,7 +13,7 @@ be replayed on its own ::
 If the working file is gone, the step falls back to the last archived artefact. The final
 ``cleanup`` task empties the working area once its files have been consumed.
 
-Running it locally: see ``docs/runbook_airflow.md``.
+Running it locally: see ``docs/airflow_runbook.md``.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ from multimodal_etl.pipeline import (
 
 def task_metrics() -> dict:
     """Consolidate the run metrics, recording that the run came from Airflow."""
-    return run_metrics(orchestrateur="airflow")
+    return run_metrics(orchestrator="airflow")
 
 
 default_args = {

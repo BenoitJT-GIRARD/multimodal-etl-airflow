@@ -126,38 +126,38 @@ def download_images(
     config = config or ImageConfig()
     ensure_dirs()
 
-    counts = {"tentees": 0, "reussies": 0, "echouees": 0, "ignorees": 0, "octets": 0}
+    counts = {"attempted": 0, "succeeded": 0, "failed": 0, "skipped": 0, "bytes": 0}
 
     for record in records:
         image_url = str(record.get("image_url", ""))
 
         # Cap reached: we stop trying, but we keep the publication.
-        if counts["tentees"] >= config.max_images:
+        if counts["attempted"] >= config.max_images:
             record["image_path"] = ""
-            counts["ignorees"] += 1
+            counts["skipped"] += 1
             continue
 
         if not url_plausible(image_url):
             record["image_path"] = ""
-            counts["ignorees"] += 1
+            counts["skipped"] += 1
             continue
 
-        counts["tentees"] += 1
+        counts["attempted"] += 1
         path = download_image(image_url, config)
         if path is None:
             record["image_path"] = ""
-            counts["echouees"] += 1
+            counts["failed"] += 1
             continue
 
         record["image_path"] = relative_path(path)
-        counts["reussies"] += 1
-        counts["octets"] += path.stat().st_size
+        counts["succeeded"] += 1
+        counts["bytes"] += path.stat().st_size
 
     logger.info(
         "Images: %d downloaded, %d failures, %d skipped (%.1f MB on disk)",
-        counts["reussies"],
-        counts["echouees"],
-        counts["ignorees"],
-        counts["octets"] / (1024 * 1024),
+        counts["succeeded"],
+        counts["failed"],
+        counts["skipped"],
+        counts["bytes"] / (1024 * 1024),
     )
     return counts

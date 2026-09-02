@@ -147,20 +147,20 @@ def build_publication(
     if config.require_image and not has_image:
         return None
 
-    source = str(raw.get("source", "inconnu"))
+    source = str(raw.get("source", "unknown"))
     return Publication(
         id=generate_id(url, title),
         source_id=generate_source_id(source),
         source=source,
-        source_type=str(raw.get("source_type", "inconnu")),
-        access_method=str(raw.get("access_method", "inconnu")),
+        source_type=str(raw.get("source_type", "unknown")),
+        access_method=str(raw.get("access_method", "unknown")),
         domain=extract_domain(url),
         title=title,
         text=text,
         text_length=len(text),
         image_url=image_url,
         image_path=image_path if has_image else "",
-        image_source=str(raw.get("image_source", "aucune")) if has_image else "aucune",
+        image_source=str(raw.get("image_source", "none")) if has_image else "none",
         has_image=has_image,
         url=url,
         language=normalise_language(raw.get("language")),
@@ -206,14 +206,14 @@ def process(
     logger.info("Transform: %d duplicates removed", before_dedup - len(df))
 
     stats = {
-        "total_brut": raw_total,
-        "total_valide": len(df),
-        "rejetes": int(raw_total - len(valid)),
-        "doublons": int(before_dedup - len(df)),
-        "avec_image": int(df["has_image"].sum()) if not df.empty else 0,
-        "labellisees": int(df["label"].notna().sum()) if not df.empty else 0,
-        "images_natives": int((df["image_source"] == "native").sum()) if not df.empty else 0,
-        "images_open_graph": int((df["image_source"] == "open_graph").sum()) if not df.empty else 0,
+        "raw_total": raw_total,
+        "valid_total": len(df),
+        "rejected": int(raw_total - len(valid)),
+        "duplicates": int(before_dedup - len(df)),
+        "with_image": int(df["has_image"].sum()) if not df.empty else 0,
+        "labelled": int(df["label"].notna().sum()) if not df.empty else 0,
+        "native_images": int((df["image_source"] == "native").sum()) if not df.empty else 0,
+        "open_graph_images": int((df["image_source"] == "open_graph").sum()) if not df.empty else 0,
     }
     return df, stats
 

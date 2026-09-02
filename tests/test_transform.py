@@ -22,7 +22,7 @@ def _valid_raw(image_path: str) -> dict[str, object]:
     return {
         "source": "rss:test",
         "source_type": "rss",
-        "access_method": "flux_rss",
+        "access_method": "rss_feed",
         "title": "Un titre de test suffisamment long",
         "text": "Un contenu de test assez long pour passer le seuil minimal de caractères.",
         "url": "https://news.example.com/article",
@@ -124,7 +124,7 @@ def test_build_publication_on_a_valid_record(tmp_path: Path) -> None:
     assert pub.image_path == str(image)
     assert pub.domain == "example.com"
     assert pub.label == "fake"
-    assert pub.access_method == "flux_rss"
+    assert pub.access_method == "rss_feed"
     assert pub.source_id == generate_source_id("rss:test")
 
 
@@ -139,7 +139,7 @@ def test_build_publication_accepts_no_image_in_lenient_mode(tmp_path: Path) -> N
     pub = build_publication(brut, TransformConfig(require_image=False), "2026-06-29")
     assert pub is not None
     assert pub.has_image is False
-    assert pub.image_source == "aucune"
+    assert pub.image_source == "none"
 
 
 def test_build_publication_rejects_text_that_is_too_short(tmp_path: Path) -> None:

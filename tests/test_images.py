@@ -84,9 +84,9 @@ def test_download_images_respects_the_cap(tmp_path: Path, monkeypatch) -> None:
 
     counts = images.download_images(records, ImageConfig(max_images=2))
 
-    assert counts["tentees"] == 2
-    assert counts["reussies"] == 2
-    assert counts["ignorees"] == 3
+    assert counts["attempted"] == 2
+    assert counts["succeeded"] == 2
+    assert counts["skipped"] == 3
     assert [bool(r["image_path"]) for r in records] == [True, True, False, False, False]
 
 

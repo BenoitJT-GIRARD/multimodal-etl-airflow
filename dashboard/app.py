@@ -33,7 +33,7 @@ from multimodal_etl.kpi import (  # noqa: E402
 st.set_page_config(page_title="Multimodal ETL — pipeline KPIs", page_icon="📊", layout="wide")
 
 # Coloured dot for each status, so the table reads at a glance.
-STATUS_DOTS = {"vert": "🟢", "orange": "🟠", "rouge": "🔴"}
+STATUS_DOTS = {"green": "🟢", "amber": "🟠", "red": "🔴"}
 
 
 def kpi_card(column, label: str, value: str, help_text: str) -> None:
@@ -53,10 +53,10 @@ def section_status(kpis: dict) -> None:
     table = pd.DataFrame(
         [
             {
-                "": STATUS_DOTS[evaluation["statut"]],
-                "Indicator": evaluation["libelle"],
-                "Value": evaluation["valeur"],
-                "Expected": evaluation["attendu"],
+                "": STATUS_DOTS[evaluation["status"]],
+                "Indicator": evaluation["label"],
+                "Value": evaluation["value"],
+                "Expected": evaluation["expected"],
                 "Why it is tracked": evaluation["justification"],
             }
             for evaluation in evaluations
@@ -64,11 +64,11 @@ def section_status(kpis: dict) -> None:
     )
     st.dataframe(table, use_container_width=True, hide_index=True)
 
-    alerts = [e for e in evaluations if e["statut"] == "rouge"]
+    alerts = [e for e in evaluations if e["status"] == "red"]
     if alerts:
         st.error(
             "Critical threshold crossed: "
-            + ", ".join(f"{a['libelle']} ({a['valeur']})" for a in alerts)
+            + ", ".join(f"{a['label']} ({a['value']})" for a in alerts)
         )
 
 
@@ -79,25 +79,25 @@ def section_quality(quality: dict) -> None:
     kpi_card(
         c1,
         "Validity rate",
-        f"{quality['taux_validite_pct']}%",
+        f"{quality['validity_rate_pct']}%",
         "Share of the collected publications that pass every quality check.",
     )
     kpi_card(
         c2,
         "Text-image pairing",
-        f"{quality['taux_association_texte_image_pct']}%",
+        f"{quality['text_image_pairing_pct']}%",
         "Share of the kept publications whose image really is on disk.",
     )
     kpi_card(
         c3,
         "Dated publications",
-        f"{quality['taux_date_connue_pct']}%",
+        f"{quality['dated_rate_pct']}%",
         "Share of publications whose date is known: without it, no freshness tracking.",
     )
     kpi_card(
         c4,
         "Duplicates dropped",
-        f"{quality['taux_doublons_pct']}%",
+        f"{quality['duplicate_rate_pct']}%",
         "Share of duplicate publications, detected and removed at the transform step.",
     )
 
@@ -109,25 +109,25 @@ def section_volume(volume: dict, freshness: dict, performance: dict) -> None:
     kpi_card(
         c1,
         "Publications in the dataset",
-        str(volume["nb_publications"]),
+        str(volume["publications"]),
         "Number of clean publications produced by the last run.",
     )
     kpi_card(
         c2,
         "Total in the database",
-        str(performance["publications_en_base"]),
+        str(performance["publications_in_db"]),
         "The dataset grows with every run: only the new rows are added.",
     )
     kpi_card(
         c3,
         "Median age",
-        f"{freshness['age_median_heures']} h",
+        f"{freshness['median_age_hours']} h",
         "Median age of the ingested publications. A fake-news detector needs recent content.",
     )
     kpi_card(
         c4,
         "Disk used by images",
-        f"{performance['poids_images_mo']} MB",
+        f"{performance['image_weight_mb']} MB",
         "Storage cost of the images downloaded during the last run.",
     )
 
@@ -139,25 +139,25 @@ def section_performance(performance: dict) -> None:
     kpi_card(
         c1,
         "Total duration",
-        f"{performance['duree_totale_sec']} s",
+        f"{performance['total_duration_sec']} s",
         "Total pipeline time: extract, transform and load.",
     )
     kpi_card(
         c2,
         "Throughput",
-        f"{performance['debit_publications_par_sec']} /s",
+        f"{performance['publications_per_sec']} /s",
         "Number of publications processed per second.",
     )
     kpi_card(
         c3,
         "What the run adds",
-        f"{performance['taux_nouveaute_pct']}%",
+        f"{performance['new_rate_pct']}%",
         "Share of the collected publications that were not already in the database.",
     )
     kpi_card(
         c4,
         "API calls spent",
-        str(performance["appels_api_consommes"]),
+        str(performance["api_calls_spent"]),
         "NewsData.io quota consumed — the main external cost.",
     )
 
@@ -168,7 +168,7 @@ def section_charts(volume: dict, performance: dict) -> None:
 
     with g1:
         st.markdown("**Where do the publications come from?**")
-        distribution = volume["repartition_sources"]
+        distribution = volume["by_source"]
         if distribution:
             figure = px.bar(
                 x=list(distribution.values()),
@@ -183,9 +183,9 @@ def section_charts(volume: dict, performance: dict) -> None:
     with g2:
         st.markdown("**Time spent at each step (seconds)**")
         steps = {
-            "Extract": performance["duree_extraction_sec"],
-            "Transform": performance["duree_transformation_sec"],
-            "Load": performance["duree_chargement_sec"],
+            "Extract": performance["extract_duration_sec"],
+            "Transform": performance["transform_duration_sec"],
+            "Load": performance["load_duration_sec"],
         }
         figure = px.bar(
             x=list(steps.keys()),
@@ -215,7 +215,7 @@ def section_history() -> None:
         figure = px.line(
             history,
             x="date",
-            y=["publications_extraites", "publications_ajoutees"],
+            y=["publications_extracted", "publications_added"],
             markers=True,
             labels={"date": "Run date", "value": "Publications", "variable": ""},
         )
@@ -227,7 +227,7 @@ def section_history() -> None:
         figure = px.line(
             history,
             x="date",
-            y=["taux_validite_pct", "duree_totale_sec"],
+            y=["validity_rate_pct", "total_duration_sec"],
             markers=True,
             labels={"date": "Run date", "value": "Value", "variable": ""},
         )
@@ -280,8 +280,8 @@ def main() -> None:
     kpis = compute_kpis(df, stats, run)
 
     section_status(kpis)
-    section_quality(kpis["qualite"])
-    section_volume(kpis["volume"], kpis["fraicheur"], kpis["performance"])
+    section_quality(kpis["quality"])
+    section_volume(kpis["volume"], kpis["freshness"], kpis["performance"])
     section_performance(kpis["performance"])
     section_charts(kpis["volume"], kpis["performance"])
     section_history()
@@ -289,9 +289,9 @@ def main() -> None:
 
     st.caption(
         f"Last run: {run.get('run_at', 'unknown')} "
-        f"(orchestrator: {run.get('orchestrateur', 'n/a')}) · "
-        f"{kpis['volume']['nb_sources']} distinct sources · "
-        f"mean text length: {kpis['qualite']['longueur_texte_moyenne']} characters."
+        f"(orchestrator: {run.get('orchestrator', 'n/a')}) · "
+        f"{kpis['volume']['sources']} distinct sources · "
+        f"mean text length: {kpis['quality']['mean_text_length']} characters."
     )
 
 

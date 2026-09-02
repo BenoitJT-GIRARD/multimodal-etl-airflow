@@ -31,10 +31,10 @@ DOCS_DIR = ROOT / "docs"
 
 # Conceptual relations (Mermaid cardinalities).
 RELATIONS: tuple[tuple[str, str, str, str], ...] = (
-    ("SOURCE", "||--o{", "PUBLICATION", "publie"),
-    ("PUBLICATION", "||--||", "CONTENU_TEXTE", "porte"),
-    ("PUBLICATION", "||--||", "CONTENU_IMAGE", "associe"),
-    ("PUBLICATION", "||--o|", "LABEL", "annote"),
+    ("SOURCE", "||--o{", "PUBLICATION", "publishes"),
+    ("PUBLICATION", "||--||", "TEXT_CONTENT", "carries"),
+    ("PUBLICATION", "||--||", "IMAGE_CONTENT", "pairs"),
+    ("PUBLICATION", "||--o|", "LABEL", "annotates"),
 )
 
 
@@ -76,7 +76,7 @@ def build_mermaid() -> str:
     for entity in ENTITIES:
         lines.append(f"    {entity} {{")
         # The join key is repeated on each content entity.
-        if entity in {"CONTENU_TEXTE", "CONTENU_IMAGE", "LABEL"}:
+        if entity in {"TEXT_CONTENT", "IMAGE_CONTENT", "LABEL"}:
             lines.append('        string id PK "KEY"')
         if entity == "SOURCE":
             lines.append('        string source_id PK "KEY"')

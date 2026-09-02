@@ -29,12 +29,12 @@ def _parse_article(article: dict[str, object]) -> dict[str, object]:
     return {
         "source": "newsdata",
         "source_type": "api",
-        "access_method": "api_rest",
+        "access_method": "rest_api",
         "title": article.get("title") or "",
         "text": article.get("description") or article.get("content") or "",
         "url": article.get("link") or "",
         "image_url": image_url,
-        "image_source": "native" if image_url else "aucune",
+        "image_source": "native" if image_url else "none",
         "published_at": article.get("pubDate") or "",
         "language": article.get("language") or "en",
         # NewsData.io provides no reliable true/false label.
