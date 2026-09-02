@@ -12,7 +12,7 @@ def test_a_failing_source_does_not_stop_the_others(monkeypatch) -> None:
 
     monkeypatch.setattr(
         extract,
-        "_CONNECTEURS",
+        "_CONNECTORS",
         {
             "qui_marche": lambda config: [{"title": "a"}, {"title": "b"}],
             "en_panne": failing_connector,

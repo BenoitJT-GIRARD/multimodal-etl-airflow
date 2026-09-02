@@ -1,26 +1,25 @@
-"""Étape L — chargement (stockage dans une base adaptée).
+"""Step L — load (storing into a database that fits the data).
 
-Le dataset transformé est chargé dans une base **relationnelle** via SQLAlchemy.
-Par défaut on cible un **SQLite** local (``data/db/multimodal_etl.db``) : léger, sans
-serveur, parfait pour une démonstration reproductible. En production, il suffit de
-renseigner ``MULTIMODAL_ETL_DB_URL`` pour pointer vers un **PostgreSQL** managé
-(authentification, rôles et chiffrage gérés côté serveur — cf. plan de monitoring).
+The transformed dataset is loaded into a **relational** database through SQLAlchemy. By
+default we target a local **SQLite** (``data/db/multimodal_etl.db``): light, serverless,
+ideal for a reproducible demonstration. In production, setting ``MULTIMODAL_ETL_DB_URL``
+is enough to point at a managed **PostgreSQL** — authentication, roles and encryption
+handled server-side (see the monitoring plan).
 
-Le choix du relationnel est cohérent avec la donnée : elle est tabulaire, de schéma
-fixe, et destinée à des requêtes analytiques (filtrer par source, par label, par
-présence d'image).
+Choosing relational is consistent with the data: it is tabular, of fixed schema, and meant
+for analytical queries (filter by source, by label, by presence of an image).
 
-Deux écritures complémentaires sont réalisées à chaque exécution :
+Two complementary writes happen on every run:
 
-* un **modèle éclaté**, une table par entité du schéma conceptuel, reliées par les
-  clés ``id`` (publication) et ``source_id`` (source) — c'est ce modèle qui prépare
-  les jointures et évite de répéter les métadonnées de source sur chaque ligne ;
-* une **table à plat** ``publications``, dénormalisée, directement consommable pour
-  l'entraînement du modèle et par le tableau de bord.
+* an **exploded model**, one table per entity of the conceptual schema, joined by the
+  ``id`` (publication) and ``source_id`` (source) keys — this is the model that prepares
+  the joins and avoids repeating the source metadata on every row;
+* a **flat table** ``publications``, denormalised, directly consumable for model training
+  and by the dashboard.
 
-Le chargement est **incrémental** : chaque exécution n'ajoute que les publications
-absentes de la base. Le jeu de données s'enrichit donc au fil des exécutions
-quotidiennes, sans jamais créer de doublon.
+The load is **incremental**: each run only adds the publications the database does not
+already hold. The dataset therefore grows over the daily runs, without ever creating a
+duplicate.
 """
 
 from __future__ import annotations
@@ -37,7 +36,7 @@ from multimodal_etl.schema import ENTITIES, fields_of
 
 logger = get_logger(__name__)
 
-# Nom de la table SQL associée à chaque entité du modèle conceptuel.
+# SQL table name matching each entity of the conceptual model.
 TABLES: dict[str, str] = {
     "SOURCE": "source",
     "PUBLICATION": "publication",
@@ -46,135 +45,133 @@ TABLES: dict[str, str] = {
     "LABEL": "label",
 }
 
-# Clé primaire de chaque table : la source a la sienne, tout le reste est identifié
-# par la publication.
-CLES: dict[str, str] = {"source": "source_id", "publication": "id"}
+# Primary key of each table: the source has its own, everything else is identified by the
+# publication.
+PRIMARY_KEYS: dict[str, str] = {"source": "source_id", "publication": "id"}
 
 
 def primary_key(table: str) -> str:
-    """Renvoie le nom de la clé primaire d'une table."""
-    return CLES.get(table, "id")
+    """Return the name of a table's primary key."""
+    return PRIMARY_KEYS.get(table, "id")
 
 
 def check_table(table: str, config: LoadConfig) -> None:
-    """Refuse tout nom de table qui ne vient pas du schéma du projet.
+    """Reject any table name that does not come from the project's schema.
 
-    Les requêtes ci-dessous composent leur nom de table par interpolation. Ce
-    contrôle garantit que ce nom vient toujours de :data:`TABLES` (ou de la
-    configuration) et jamais d'une saisie extérieure : c'est ce qui écarte tout
-    risque d'injection SQL.
+    The queries below build their table name by interpolation. This check guarantees that
+    the name always comes from :data:`TABLES` (or from the configuration) and never from
+    outside input: that is what rules out any SQL injection.
     """
-    autorisees = set(TABLES.values()) | {config.table_name}
-    if table not in autorisees:
-        raise ValueError(f"table inconnue : {table}")
+    allowed = set(TABLES.values()) | {config.table_name}
+    if table not in allowed:
+        raise ValueError(f"unknown table: {table}")
 
 
 def read_dataset(path: Path) -> pd.DataFrame:
-    """Charge le dataset transformé (Parquet ou CSV) en DataFrame."""
+    """Load the transformed dataset (Parquet or CSV) into a DataFrame."""
     if path.suffix == ".parquet":
         return pd.read_parquet(path)
     return pd.read_csv(path)
 
 
 def split_into_tables(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
-    """Éclate le dataset à plat en une table par entité du schéma conceptuel.
+    """Explode the flat dataset into one table per entity of the conceptual schema.
 
-    Chaque table reçoit sa clé primaire puis les champs que le schéma rattache à
-    son entité. La table ``source`` est dédupliquée : une ligne par source, et non
-    une par publication.
+    Each table gets its primary key, then the fields the schema attaches to its entity.
+    The ``source`` table is deduplicated: one row per source, not one per publication.
     """
     tables: dict[str, pd.DataFrame] = {}
 
     for entity in ENTITIES:
         table = TABLES[entity]
-        cle = primary_key(table)
-        colonnes = [cle] + [spec.name for spec in fields_of(entity) if spec.name != cle]
+        key = primary_key(table)
+        columns = [key] + [spec.name for spec in fields_of(entity) if spec.name != key]
 
-        morceau = df[colonnes].copy()
+        chunk = df[columns].copy()
         if table == "source":
-            morceau = morceau.drop_duplicates(subset="source_id").reset_index(drop=True)
+            chunk = chunk.drop_duplicates(subset="source_id").reset_index(drop=True)
         if table == "label":
-            # Seules les publications réellement annotées entrent dans cette table.
-            morceau = morceau[morceau["label"].notna()].reset_index(drop=True)
+            # Only the publications that really carry an annotation enter this table.
+            chunk = chunk[chunk["label"].notna()].reset_index(drop=True)
 
-        tables[table] = morceau
+        tables[table] = chunk
 
     return tables
 
 
 def read_existing_keys(engine: Engine, table: str, config: LoadConfig) -> set[str]:
-    """Renvoie les clés primaires déjà présentes dans une table (clear si absente)."""
+    """Return the primary keys already in a table (empty when the table is absent)."""
     check_table(table, config)
     if not inspect(engine).has_table(table):
         return set()
-    cle = primary_key(table)
-    with engine.connect() as connexion:
-        requete = text(f"SELECT {cle} FROM {table}")  # nosec B608 - noms validés ci-dessus
-        return {ligne[0] for ligne in connexion.execute(requete)}
+    key = primary_key(table)
+    with engine.connect() as connection:
+        query = text(f"SELECT {key} FROM {table}")  # nosec B608 - names validated above
+        return {row[0] for row in connection.execute(query)}
 
 
-def insert_new_rows(engine: Engine, table: str, morceau: pd.DataFrame, config: LoadConfig) -> int:
-    """Ajoute à une table les seules lignes dont la clé est encore inconnue."""
-    if morceau.empty:
+def insert_new_rows(engine: Engine, table: str, chunk: pd.DataFrame, config: LoadConfig) -> int:
+    """Add to a table only the rows whose key is not known yet."""
+    if chunk.empty:
         return 0
 
-    cle = primary_key(table)
-    deja_connues = read_existing_keys(engine, table, config)
-    nouveautes = morceau[~morceau[cle].isin(deja_connues)]
-    if nouveautes.empty:
-        logger.info("Chargement : table '%s' déjà à jour", table)
+    key = primary_key(table)
+    already_known = read_existing_keys(engine, table, config)
+    new_rows = chunk[~chunk[key].isin(already_known)]
+    if new_rows.empty:
+        logger.info("Load: table '%s' already up to date", table)
         return 0
 
-    nouveautes.to_sql(table, engine, if_exists="append", index=False)
-    logger.info("Chargement : %d lignes ajoutées dans '%s'", len(nouveautes), table)
-    return len(nouveautes)
+    new_rows.to_sql(table, engine, if_exists="append", index=False)
+    logger.info("Load: %d rows added to '%s'", len(new_rows), table)
+    return len(new_rows)
 
 
 def write_to_database(df: pd.DataFrame, config: LoadConfig | None = None) -> dict[str, int]:
-    """Charge le dataset dans la base et renvoie le nombre de lignes ajoutées par table."""
+    """Load the dataset into the database and return the rows added per table."""
     config = config or LoadConfig()
     ensure_dirs()
 
     url = config.resolved_url
-    logger.info("Chargement : connexion à la base (%s)", url.split("@")[-1])
+    logger.info("Load: connecting to the database (%s)", url.split("@")[-1])
     engine = create_engine(url)
 
-    bilan: dict[str, int] = {}
+    per_table: dict[str, int] = {}
     try:
-        # 1. Modèle éclaté : une table par entité, reliées par leurs clés.
-        for table, morceau in split_into_tables(df).items():
-            bilan[table] = insert_new_rows(engine, table, morceau, config)
+        # 1. Exploded model: one table per entity, joined by their keys.
+        for table, chunk in split_into_tables(df).items():
+            per_table[table] = insert_new_rows(engine, table, chunk, config)
 
-        # 2. Table à plat, prête pour l'entraînement et le tableau de bord.
-        bilan[config.table_name] = insert_new_rows(engine, config.table_name, df, config)
+        # 2. Flat table, ready for training and for the dashboard.
+        per_table[config.table_name] = insert_new_rows(engine, config.table_name, df, config)
     finally:
         engine.dispose()
 
-    bilan["deja_presentes"] = len(df) - bilan.get(config.table_name, 0)
+    per_table["deja_presentes"] = len(df) - per_table.get(config.table_name, 0)
     logger.info(
-        "Chargement : %d nouvelles publications, %d déjà présentes",
-        bilan.get(config.table_name, 0),
-        bilan["deja_presentes"],
+        "Load: %d new publications, %d already present",
+        per_table.get(config.table_name, 0),
+        per_table["deja_presentes"],
     )
-    return bilan
+    return per_table
 
 
 def count_publications(config: LoadConfig | None = None) -> int:
-    """Renvoie le nombre total de publications accumulées en base."""
+    """Return the total number of publications accumulated in the database."""
     config = config or LoadConfig()
     check_table(config.table_name, config)
     engine = create_engine(config.resolved_url)
     try:
         if not inspect(engine).has_table(config.table_name):
             return 0
-        with engine.connect() as connexion:
-            requete = text(f"SELECT COUNT(*) FROM {config.table_name}")  # nosec B608
-            return int(connexion.execute(requete).scalar() or 0)
+        with engine.connect() as connection:
+            query = text(f"SELECT COUNT(*) FROM {config.table_name}")  # nosec B608
+            return int(connection.execute(query).scalar() or 0)
     finally:
         engine.dispose()
 
 
 def load_dataset(dataset_path: Path, config: LoadConfig | None = None) -> dict[str, int]:
-    """Pipeline de chargement complet : lecture du dataset puis écriture en base."""
+    """The whole load pipeline: read the dataset, then write it to the database."""
     df = read_dataset(dataset_path)
     return write_to_database(df, config)

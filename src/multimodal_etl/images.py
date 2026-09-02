@@ -1,17 +1,16 @@
-"""Téléchargement des images (volet « vision » de la donnée multimodale).
+"""Image download (the "vision" half of the multimodal data).
 
-Une publication multimodale n'est réellement exploitable que si l'image existe
-**sur le disque**, à côté du texte : une URL peut être morte, protégée ou pointer
-vers autre chose qu'une image. Ce module télécharge donc chaque image, la valide
-avec Pillow, puis renvoie le **chemin du fichier** — c'est ce chemin qui est écrit
-dans le JSON brut aux côtés du texte.
+A multimodal publication is only really usable once the image exists **on disk**, next to
+the text: a URL can be dead, gated, or point at something that is not an image. So this
+module downloads each image, validates it with Pillow, then returns the **file path** —
+and it is that path which gets written into the raw JSON alongside the text.
 
-Le module est organisé en quatre petites fonctions :
+The module is laid out as four small functions:
 
-1. :func:`url_plausible` — filtre les URL manifestement inutilisables (gratuit) ;
-2. :func:`filename_for` — construit un nom déterministe (relance = pas de doublon) ;
-3. :func:`download_image` — télécharge et valide **une** image ;
-4. :func:`download_images` — parcourt les publications et complète ``image_path``.
+1. :func:`url_plausible` — filters out the obviously unusable URLs, for free;
+2. :func:`filename_for` — builds a deterministic name (a rerun makes no duplicate);
+3. :func:`download_image` — downloads and validates **one** image;
+4. :func:`download_images` — walks the publications and fills in ``image_path``.
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ from multimodal_etl.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
-# Extension de fichier associée à chaque type MIME accepté.
+# File extension matching each accepted MIME type.
 _EXTENSIONS: dict[str, str] = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -38,127 +37,127 @@ _EXTENSIONS: dict[str, str] = {
 
 
 def url_plausible(image_url: str) -> bool:
-    """Indique si une URL a une chance d'être une image téléchargeable.
+    """Say whether a URL stands a chance of being a downloadable image.
 
-    On se contente ici d'un contrôle gratuit (schéma HTTP(S) et hôte présent) :
-    le vrai contrôle, c'est le téléchargement. On ne filtre volontairement pas sur
-    l'extension du fichier, car beaucoup de CDN servent des images via des URL
-    sans extension.
+    All we do here is a free check — an HTTP(S) scheme and a host. The real check is the
+    download itself. We deliberately do not filter on the file extension, because many
+    CDNs serve images through URLs that have none.
     """
     if not image_url:
         return False
-    analyse = urlparse(image_url)
-    return analyse.scheme in {"http", "https"} and bool(analyse.netloc)
+    parsed = urlparse(image_url)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
-def filename_for(image_url: str, type_mime: str) -> str:
-    """Construit un nom de fichier déterministe à partir de l'URL de l'image.
+def filename_for(image_url: str, mime_type: str) -> str:
+    """Build a deterministic file name from the image URL.
 
-    Le nom dépend uniquement de l'URL : relancer le pipeline réécrit le même
-    fichier au lieu d'en accumuler des copies.
+    The name depends on the URL alone: replaying the pipeline rewrites the same file
+    instead of piling up copies of it.
     """
-    # Empreinte utilisée comme nom de fichier, pas comme protection : d'où
-    # `usedforsecurity=False`.
-    empreinte = hashlib.sha1(image_url.encode(), usedforsecurity=False).hexdigest()[:16]
-    extension = _EXTENSIONS.get(type_mime, ".jpg")
-    return f"{empreinte}{extension}"
+    # The hash is a file name, not a protection: hence `usedforsecurity=False`.
+    fingerprint = hashlib.sha1(image_url.encode(), usedforsecurity=False).hexdigest()[:16]
+    extension = _EXTENSIONS.get(mime_type, ".jpg")
+    return f"{fingerprint}{extension}"
 
 
-def download_image(image_url: str, config: ImageConfig, dossier: Path | None = None) -> Path | None:
-    """Télécharge une image et renvoie son chemin, ou ``None`` si elle est inutilisable.
+def download_image(
+    image_url: str, config: ImageConfig, directory: Path | None = None
+) -> Path | None:
+    """Download an image and return its path, or ``None`` when it is unusable.
 
-    Trois contrôles successifs, du moins cher au plus cher :
-    type MIME annoncé, puis taille du fichier, puis ouverture réelle par Pillow.
+    Three checks in a row, cheapest first: the announced MIME type, then the file size,
+    then a real open by Pillow.
     """
-    dossier = dossier or IMAGES_DIR
-    dossier.mkdir(parents=True, exist_ok=True)
+    directory = directory or IMAGES_DIR
+    directory.mkdir(parents=True, exist_ok=True)
 
     if not url_plausible(image_url):
         return None
 
     try:
-        reponse = requests.get(
+        response = requests.get(
             image_url,
             timeout=config.request_timeout,
             headers={"User-Agent": config.user_agent},
         )
-        reponse.raise_for_status()
+        response.raise_for_status()
     except requests.RequestException as exc:
-        logger.warning("Image : téléchargement impossible (%s) : %s", image_url[:80], exc)
+        logger.warning("Image: download failed (%s): %s", image_url[:80], exc)
         return None
 
-    # 1. Le serveur annonce-t-il bien une image d'un type que l'on sait lire ?
-    type_mime = reponse.headers.get("Content-Type", "").split(";")[0].strip().lower()
-    if type_mime not in config.accepted_mime_types:
-        logger.warning("Image : type '%s' refusé pour %s", type_mime, image_url[:80])
+    # 1. Does the server actually announce an image of a type we can read?
+    mime_type = response.headers.get("Content-Type", "").split(";")[0].strip().lower()
+    if mime_type not in config.accepted_mime_types:
+        logger.warning("Image: type '%s' rejected for %s", mime_type, image_url[:80])
         return None
 
-    # 2. Le fichier tient-il dans le budget disque fixé ?
-    poids_mo = len(reponse.content) / (1024 * 1024)
-    if poids_mo > config.max_size_mb:
-        logger.warning("Image : %.1f Mo au-dessus de la limite pour %s", poids_mo, image_url[:80])
+    # 2. Does the file fit the disk budget we set?
+    size_mb = len(response.content) / (1024 * 1024)
+    if size_mb > config.max_size_mb:
+        logger.warning("Image: %.1f MB over the limit for %s", size_mb, image_url[:80])
         return None
 
-    path_for = dossier / filename_for(image_url, type_mime)
-    path_for.write_bytes(reponse.content)
+    path = directory / filename_for(image_url, mime_type)
+    path.write_bytes(response.content)
 
-    # 3. Le fichier est-il une image réellement décodable ? (URL piégée, fichier tronqué)
+    # 3. Is the file a genuinely decodable image? (booby-trapped URL, truncated file)
     try:
-        with Image.open(path_for) as image:
+        with Image.open(path) as image:
             image.verify()
     except (UnidentifiedImageError, OSError) as exc:
-        logger.warning("Image : fichier illisible, supprimé (%s) : %s", path_for.name, exc)
-        path_for.unlink(missing_ok=True)
+        logger.warning("Image: unreadable file, deleted (%s): %s", path.name, exc)
+        path.unlink(missing_ok=True)
         return None
 
-    return path_for
+    return path
 
 
 def download_images(
     records: list[dict[str, object]], config: ImageConfig | None = None
 ) -> dict[str, int]:
-    """Complète chaque publication avec le chemin de son image téléchargée.
+    """Fill in each publication with the path of its downloaded image.
 
-    Modifie les dictionnaires sur place en renseignant ``image_path`` — un chemin
-    **relatif à la racine du projet**, pour rester valable en local comme dans le
-    conteneur Airflow — ou une chaîne clear si l'image n'a pas pu être récupérée.
-    Renvoie un compte rendu chiffré, repris par les KPI.
+    Modifies the dictionaries in place, setting ``image_path`` — a path **relative to the
+    project root**, so it stays valid locally as well as inside the Airflow container — or
+    an empty string when the image could not be fetched. Returns a numeric report, which
+    the KPIs pick up.
     """
     config = config or ImageConfig()
     ensure_dirs()
 
-    compteurs = {"tentees": 0, "reussies": 0, "echouees": 0, "ignorees": 0, "octets": 0}
+    counts = {"tentees": 0, "reussies": 0, "echouees": 0, "ignorees": 0, "octets": 0}
 
     for record in records:
         image_url = str(record.get("image_url", ""))
 
-        # Plafond atteint : on n'essaie plus, mais on garde la publication.
-        if compteurs["tentees"] >= config.max_images:
+        # Cap reached: we stop trying, but we keep the publication.
+        if counts["tentees"] >= config.max_images:
             record["image_path"] = ""
-            compteurs["ignorees"] += 1
+            counts["ignorees"] += 1
             continue
 
         if not url_plausible(image_url):
             record["image_path"] = ""
-            compteurs["ignorees"] += 1
+            counts["ignorees"] += 1
             continue
 
-        compteurs["tentees"] += 1
-        path_for = download_image(image_url, config)
-        if path_for is None:
+        counts["tentees"] += 1
+        path = download_image(image_url, config)
+        if path is None:
             record["image_path"] = ""
-            compteurs["echouees"] += 1
+            counts["echouees"] += 1
             continue
 
-        record["image_path"] = relative_path(path_for)
-        compteurs["reussies"] += 1
-        compteurs["octets"] += path_for.stat().st_size
+        record["image_path"] = relative_path(path)
+        counts["reussies"] += 1
+        counts["octets"] += path.stat().st_size
 
     logger.info(
-        "Images : %d téléchargées, %d échecs, %d ignorées (%.1f Mo sur disque)",
-        compteurs["reussies"],
-        compteurs["echouees"],
-        compteurs["ignorees"],
-        compteurs["octets"] / (1024 * 1024),
+        "Images: %d downloaded, %d failures, %d skipped (%.1f MB on disk)",
+        counts["reussies"],
+        counts["echouees"],
+        counts["ignorees"],
+        counts["octets"] / (1024 * 1024),
     )
-    return compteurs
+    return counts
