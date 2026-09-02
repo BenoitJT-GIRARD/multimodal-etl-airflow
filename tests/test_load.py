@@ -1,4 +1,4 @@
-"""Tests unitaires du chargement en base."""
+"""Unit tests of the database load."""
 
 from __future__ import annotations
 
@@ -17,26 +17,26 @@ from multimodal_etl.load import (
 from multimodal_etl.schema import COLUMNS
 
 
-def _dataset(identifiants: tuple[str, ...]) -> pd.DataFrame:
-    """Construit un dataset minimal conforme au schéma."""
-    lignes = []
-    for index, identifiant in enumerate(identifiants):
-        lignes.append(
+def _dataset(ids: tuple[str, ...]) -> pd.DataFrame:
+    """Build a minimal dataset that conforms to the schema."""
+    rows = []
+    for index, identifier in enumerate(ids):
+        rows.append(
             {
-                "id": identifiant,
+                "id": identifier,
                 "source_id": "src_rss" if index % 2 == 0 else "src_api",
                 "source": "rss:bbc" if index % 2 == 0 else "newsdata",
                 "source_type": "rss" if index % 2 == 0 else "api",
                 "access_method": "flux_rss" if index % 2 == 0 else "api_rest",
                 "domain": "bbc.co.uk",
-                "title": f"Titre {index}",
-                "text": f"Texte {index}",
+                "title": f"Title {index}",
+                "text": f"Text {index}",
                 "text_length": 8,
                 "image_url": "https://site.com/i.jpg",
-                "image_path": f"data/raw/images/{identifiant}.jpg",
+                "image_path": f"data/raw/images/{identifier}.jpg",
                 "image_source": "native",
                 "has_image": True,
-                "url": f"https://site.com/{identifiant}",
+                "url": f"https://site.com/{identifier}",
                 "language": "en",
                 "published_at": "2026-06-29T10:00:00+00:00",
                 "ingested_at": "2026-06-29T11:00:00+00:00",
@@ -44,7 +44,7 @@ def _dataset(identifiants: tuple[str, ...]) -> pd.DataFrame:
                 "label_source": "fakenewsnet:politifact" if index == 0 else None,
             }
         )
-    return pd.DataFrame(lignes, columns=list(COLUMNS))
+    return pd.DataFrame(rows, columns=list(COLUMNS))
 
 
 def _config(tmp_path: Path) -> LoadConfig:
@@ -56,12 +56,12 @@ def test_split_into_tables_distributes_every_field() -> None:
 
     assert set(tables) == {"source", "publication", "contenu_texte", "contenu_image", "label"}
     assert list(tables["contenu_texte"].columns) == ["id", "title", "text", "text_length"]
-    assert "source_id" in tables["publication"].columns  # la clé de jointure est présente
+    assert "source_id" in tables["publication"].columns  # the join key is there
 
 
 def test_split_into_tables_deduplicates_the_sources() -> None:
     tables = split_into_tables(_dataset(("a", "b", "c", "d")))
-    # Quatre publications, mais seulement deux sources distinctes.
+    # Four publications, but only two distinct sources.
     assert len(tables["source"]) == 2
 
 
@@ -75,9 +75,9 @@ def test_write_to_database_creates_every_table(tmp_path: Path) -> None:
     write_to_database(_dataset(("a", "b")), config)
 
     engine = create_engine(config.resolved_url)
-    with engine.connect() as connexion:
-        publications = connexion.execute(text("SELECT COUNT(*) FROM publications")).scalar()
-        sources = connexion.execute(text("SELECT COUNT(*) FROM source")).scalar()
+    with engine.connect() as connection:
+        publications = connection.execute(text("SELECT COUNT(*) FROM publications")).scalar()
+        sources = connection.execute(text("SELECT COUNT(*) FROM source")).scalar()
     engine.dispose()
 
     assert publications == 2
@@ -87,11 +87,11 @@ def test_write_to_database_creates_every_table(tmp_path: Path) -> None:
 def test_loading_is_incremental(tmp_path: Path) -> None:
     config = _config(tmp_path)
 
-    premier = write_to_database(_dataset(("a", "b")), config)
+    first = write_to_database(_dataset(("a", "b")), config)
     second = write_to_database(_dataset(("b", "c")), config)
 
-    assert premier["publications"] == 2
-    # Seule la publication « c » est nouvelle ; « b » est déjà en base.
+    assert first["publications"] == 2
+    # Only publication "c" is new; "b" is already in the database.
     assert second["publications"] == 1
     assert second["deja_presentes"] == 1
     assert count_publications(config) == 3
@@ -100,9 +100,9 @@ def test_loading_is_incremental(tmp_path: Path) -> None:
 def test_replaying_the_same_load_adds_nothing(tmp_path: Path) -> None:
     config = _config(tmp_path)
     write_to_database(_dataset(("a", "b")), config)
-    rejeu = write_to_database(_dataset(("a", "b")), config)
+    replay = write_to_database(_dataset(("a", "b")), config)
 
-    assert rejeu["publications"] == 0
+    assert replay["publications"] == 0
     assert count_publications(config) == 2
 
 
@@ -111,8 +111,8 @@ def test_the_join_keys_connect_the_tables(tmp_path: Path) -> None:
     write_to_database(_dataset(("a", "b")), config)
 
     engine = create_engine(config.resolved_url)
-    with engine.connect() as connexion:
-        lignes = connexion.execute(
+    with engine.connect() as connection:
+        rows = connection.execute(
             text(
                 "SELECT p.id, s.source, t.title, i.image_path "
                 "FROM publication p "
@@ -124,16 +124,16 @@ def test_the_join_keys_connect_the_tables(tmp_path: Path) -> None:
         ).fetchall()
     engine.dispose()
 
-    assert len(lignes) == 2
-    assert lignes[0][1] == "rss:bbc"
+    assert len(rows) == 2
+    assert rows[0][1] == "rss:bbc"
 
 
 def test_read_dataset_handles_parquet_and_csv(tmp_path: Path) -> None:
     df = _dataset(("a",))
-    chemin_csv = tmp_path / "d.csv"
-    df.to_csv(chemin_csv, index=False)
-    assert len(read_dataset(chemin_csv)) == 1
+    csv_path = tmp_path / "d.csv"
+    df.to_csv(csv_path, index=False)
+    assert len(read_dataset(csv_path)) == 1
 
-    chemin_parquet = tmp_path / "d.parquet"
-    df.to_parquet(chemin_parquet, index=False)
-    assert len(read_dataset(chemin_parquet)) == 1
+    parquet_path = tmp_path / "d.parquet"
+    df.to_parquet(parquet_path, index=False)
+    assert len(read_dataset(parquet_path)) == 1

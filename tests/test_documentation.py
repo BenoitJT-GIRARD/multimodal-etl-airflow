@@ -1,8 +1,8 @@
-"""Vérifie que la documentation reste alignée sur le code.
+"""Check that the documentation stays aligned with the code.
 
-Le schéma, les seuils d'alerte et les documents livrés décrivent la même chose. Rien
-n'empêche mécaniquement le code d'évoluer sans que les documents suivent : ces tests
-comblent ce trou.
+The schema, the alert thresholds and the delivered documents all describe the same thing.
+Nothing mechanically stops the code from moving on without the documents following: these
+tests fill that hole.
 """
 
 from __future__ import annotations
@@ -16,52 +16,52 @@ from multimodal_etl.schema import COLUMNS
 DOCS = PROJECT_ROOT / "docs"
 
 
-def _read(nom: str) -> str:
-    path_for = DOCS / nom
-    assert path_for.exists(), f"document manquant : {nom}"
-    return path_for.read_text(encoding="utf-8")
+def _read(name: str) -> str:
+    path = DOCS / name
+    assert path.exists(), f"missing document: {name}"
+    return path.read_text(encoding="utf-8")
 
 
 def test_the_data_dictionary_covers_the_whole_schema() -> None:
-    dictionnaire = _read("data_schema.md")
-    manquants = [champ for champ in COLUMNS if f"`{champ}`" not in dictionnaire]
-    assert not manquants, f"champs absents du dictionnaire : {manquants}"
+    dictionary = _read("data_schema.md")
+    missing = [field for field in COLUMNS if f"`{field}`" not in dictionary]
+    assert not missing, f"fields absent from the dictionary: {missing}"
 
 
 def test_the_diagram_covers_the_whole_schema() -> None:
-    diagramme = _read("data_schema.mmd")
-    manquants = [champ for champ in COLUMNS if champ not in diagramme]
-    assert not manquants, f"champs absents du diagramme : {manquants}"
+    diagram = _read("data_schema.mmd")
+    missing = [field for field in COLUMNS if field not in diagram]
+    assert not missing, f"fields absent from the diagram: {missing}"
 
 
 def test_the_monitoring_plan_documents_every_threshold() -> None:
     plan = _read("monitoring_plan.md")
-    manquants = [seuil.libelle for seuil in THRESHOLDS.values() if seuil.libelle not in plan]
-    assert not manquants, f"seuils absents du plan de monitoring : {manquants}"
+    missing = [t.libelle for t in THRESHOLDS.values() if t.libelle not in plan]
+    assert not missing, f"thresholds absent from the monitoring plan: {missing}"
 
 
 def test_the_documents_the_readme_points_at_all_exist() -> None:
-    attendus = [
-        DOCS / "rapport_exploration_sources.md",
+    expected = [
+        DOCS / "source_exploration.md",
         DOCS / "data_schema.mmd",
         DOCS / "data_schema.md",
         DOCS / "monitoring_plan.md",
-        DOCS / "preuve_execution_airflow.md",
+        DOCS / "airflow_run_evidence.md",
         PROJECT_ROOT / "dags" / "multimodal_etl_dag.py",
         PROJECT_ROOT / "dashboard" / "app.py",
     ]
-    manquants = [path_for.name for path_for in attendus if not path_for.exists()]
-    assert not manquants, f"documents manquants : {manquants}"
+    missing = [path.name for path in expected if not path.exists()]
+    assert not missing, f"missing documents: {missing}"
 
 
 def test_no_document_references_a_missing_file() -> None:
-    # Le rapport et le runbook citent des chemins du dépôt : ils doivent exister.
+    # The report and the runbook quote paths of the repository: they have to exist.
     references = {
-        "rapport_exploration_sources.md": ["data/samples/fakeddit_sample.tsv"],
-        "runbook_airflow.md": ["docker/Dockerfile", "docker/.env.example"],
+        "source_exploration.md": ["data/samples/fakeddit_sample.tsv"],
+        "airflow_runbook.md": ["docker/Dockerfile", "docker/.env.example"],
     }
-    for document, chemins in references.items():
-        contenu = _read(document)
-        for path_for in chemins:
-            assert path_for in contenu, f"{document} ne cite plus {path_for}"
-            assert Path(PROJECT_ROOT / path_for).exists(), f"{path_for} n'existe plus"
+    for document, paths in references.items():
+        content = _read(document)
+        for path in paths:
+            assert path in content, f"{document} no longer quotes {path}"
+            assert Path(PROJECT_ROOT / path).exists(), f"{path} no longer exists"

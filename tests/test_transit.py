@@ -1,4 +1,4 @@
-"""Tests unitaires de la zone de transit entre les étapes."""
+"""Unit tests of the working area between the steps."""
 
 from __future__ import annotations
 
@@ -9,12 +9,12 @@ from multimodal_etl import transit
 
 
 def _prepare(tmp_path: Path, monkeypatch) -> tuple[Path, Path, Path]:
-    """Redirige la zone de transit et les dossiers d'archives vers tmp_path."""
+    """Point the working area and the archive folders at tmp_path."""
     interim = tmp_path / "interim"
     raw = tmp_path / "raw"
     processed = tmp_path / "processed"
-    for dossier in (interim, raw, processed):
-        dossier.mkdir()
+    for directory in (interim, raw, processed):
+        directory.mkdir()
 
     monkeypatch.setattr(transit, "INTERIM_DIR", interim)
     monkeypatch.setattr(transit, "RAW_DIR", raw)
@@ -42,19 +42,19 @@ def test_extraction_input_prefers_the_working_file(tmp_path: Path, monkeypatch) 
 
 
 def test_extraction_input_falls_back_to_the_last_archive(tmp_path: Path, monkeypatch) -> None:
-    # C'est ce repli qui permet de rejouer la transformation seule après un nettoyage.
+    # This fallback is what allows the transform step to be replayed alone after a cleanup.
     _, raw, _ = _prepare(tmp_path, monkeypatch)
-    ancienne = raw / "raw_publications_20260819_090000.json"
-    recente = raw / "raw_publications_20260820_090000.json"
-    ancienne.write_text("ancienne", encoding="utf-8")
-    recente.write_text("recente", encoding="utf-8")
-    os.utime(ancienne, (1_700_000_000, 1_700_000_000))
-    os.utime(recente, (1_700_003_600, 1_700_003_600))
+    older = raw / "raw_publications_20260819_090000.json"
+    newer = raw / "raw_publications_20260820_090000.json"
+    older.write_text("older", encoding="utf-8")
+    newer.write_text("newer", encoding="utf-8")
+    os.utime(older, (1_700_000_000, 1_700_000_000))
+    os.utime(newer, (1_700_003_600, 1_700_003_600))
 
-    entree = transit.extraction_input()
+    found = transit.extraction_input()
 
-    assert entree is not None
-    assert entree.name == recente.name
+    assert found is not None
+    assert found.name == newer.name
 
 
 def test_extraction_input_returns_none_without_data(tmp_path: Path, monkeypatch) -> None:
@@ -67,19 +67,19 @@ def test_dataset_input_falls_back_to_the_last_archive(tmp_path: Path, monkeypatc
     archive = processed / "publications_20260820_090000.parquet"
     archive.write_bytes(b"parquet")
 
-    entree = transit.dataset_input()
+    found = transit.dataset_input()
 
-    assert entree is not None
-    assert entree.name == archive.name
+    assert found is not None
+    assert found.name == archive.name
 
 
 def test_metrics_round_trip(tmp_path: Path, monkeypatch) -> None:
     _prepare(tmp_path, monkeypatch)
     transit.write_metrics("extract", {"duree_sec": 1.5, "publications_extraites": 10})
 
-    mesures = transit.read_metrics("extract")
+    metrics = transit.read_metrics("extract")
 
-    assert mesures["publications_extraites"] == 10
+    assert metrics["publications_extraites"] == 10
 
 
 def test_read_metrics_returns_an_empty_dict_when_absent(tmp_path: Path, monkeypatch) -> None:
@@ -92,9 +92,9 @@ def test_clear_deletes_every_temporary_file(tmp_path: Path, monkeypatch) -> None
     (interim / transit.EXTRACTION).write_text("[]", encoding="utf-8")
     transit.write_metrics("extract", {"duree_sec": 1.0})
 
-    supprimes = transit.clear()
+    removed = transit.clear()
 
-    assert sorted(supprimes) == sorted([transit.EXTRACTION, transit.METRICS_FILES["extract"]])
+    assert sorted(removed) == sorted([transit.EXTRACTION, transit.METRICS_FILES["extract"]])
     assert list(interim.iterdir()) == []
 
 
@@ -118,8 +118,8 @@ def test_pipeline_load_step_delegates_to_the_loader():
         patch.object(pipeline, "count_publications", return_value=7),
         patch.object(pipeline, "load_dataset", return_value={"publications": 3}) as loader,
     ):
-        mesures = pipeline.run_load()
+        metrics = pipeline.run_load()
 
     loader.assert_called_once()
     assert loader.call_args.args[0] == dataset
-    assert mesures["publications_en_base"] == 7
+    assert metrics["publications_en_base"] == 7

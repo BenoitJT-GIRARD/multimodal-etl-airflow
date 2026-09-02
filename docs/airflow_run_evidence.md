@@ -134,18 +134,3 @@ Une seconde exécution ne recharge pas les mêmes données :
 Sur 179 publications collectées, seules 11 étaient absentes de la base — les flux RSS
 n'avaient publié que quelques articles entre les deux exécutions. Le jeu de données
 s'enrichit au fil des exécutions quotidiennes, sans doublon et sans écraser l'historique.
-
----
-
-## 5. Captures d'écran de l'interface
-
-Prises sur une exécution déclenchée depuis l'interface et exécutée par l'ordonnanceur —
-`reports/Girard_Benoit_12_202600820/Girard_Benoit_5_flux_etl_airflow_captures_082026/`.
-
-| Capture | Ce qu'elle montre |
-|---|---|
-| `01_liste_dags.png` | Le DAG `multimodal_etl` actif, planifié `@daily`, avec ses exécutions récentes en succès. |
-| `02_vue_grid.png` | La vue *Grid* : quatre exécutions, cinq tâches vertes chacune, et le détail de la dernière (`success`, 1 min 23 s). |
-| `03_vue_graph.png` | La vue *Graph* : les cinq `PythonOperator` enchaînés, tous en `success`. |
-| `04_log_chargement.png` | Le log de la tâche `chargement` : les six tables peuplées, et `16 nouvelles publications, 120 déjà présentes` — le chargement incrémental à l'œuvre. |
-| `05_code_dag.png` | Le code du DAG tel qu'Airflow l'a chargé. |
