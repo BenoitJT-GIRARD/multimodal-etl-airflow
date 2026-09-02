@@ -62,9 +62,9 @@ Copy-Item .env.example .env  # renseigner NEWSDATA_API_KEY (facultatif)
 Chaque étape est exécutable indépendamment, sans intervention manuelle :
 
 ```powershell
-uv run python scripts/run_extraction.py      # 1. collecte → data/raw/ (+ images)
-uv run python scripts/run_transformation.py  # 2. nettoyage → data/processed/
-uv run python scripts/run_chargement.py      # 3. chargement en base
+uv run python scripts/run_extract.py      # 1. collecte → data/raw/ (+ images)
+uv run python scripts/run_transform.py  # 2. nettoyage → data/processed/
+uv run python scripts/run_load.py      # 3. chargement en base
 uv run python scripts/run_etl.py             # ou tout d'un coup
 uv run streamlit run dashboard/app.py        # 4. tableau de bord KPI
 ```

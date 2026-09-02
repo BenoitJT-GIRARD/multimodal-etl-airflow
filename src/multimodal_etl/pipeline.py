@@ -1,21 +1,20 @@
-"""Les cinq étapes du pipeline, écrites pour être exécutables séparément.
+"""The five pipeline steps, written so that each can run on its own.
 
-Ce module rassemble une fonction par étape. Ce sont **exactement les mêmes
-fonctions** qui sont appelées par les scripts en ligne de commande, par les
-notebooks et par les ``PythonOperator`` du DAG Airflow : il n'existe qu'une seule
-version de la logique métier.
+One function per step. These are **exactly the functions** called by the command-line
+scripts, by the notebooks and by the ``PythonOperator`` instances of the Airflow DAG:
+there is a single copy of the logic.
 
-Chaque étape suit le même contrat, et c'est ce contrat qui rend les tâches
-indépendantes les unes des autres :
+Every step follows the same contract, and it is that contract which makes the tasks
+independent of one another:
 
-1. elle lit son entrée dans la **zone de transit** (:mod:`multimodal_etl.transit`), avec
-   repli sur le dernier artefact archivé si le fichier temporaire a disparu ;
-2. elle archive son résultat (``data/raw/`` ou ``data/processed/``) ;
-3. elle dépose une copie de travail dans la zone de transit pour l'étape suivante ;
-4. elle mesure sa durée et écrit son compte rendu.
+1. it reads its input from the **working area** (:mod:`multimodal_etl.transit`), falling
+   back to the last archived artefact if the temporary file is gone;
+2. it archives its own result under ``data/raw/`` or ``data/processed/``;
+3. it drops a working copy into the working area for the next step;
+4. it times itself and writes a run record.
 
-La dernière étape, :func:`run_cleanup`, vide la zone de transit une fois les
-fichiers consommés.
+The last step, :func:`run_cleanup`, empties the working area once its files have been
+consumed.
 """
 
 from __future__ import annotations
@@ -41,117 +40,113 @@ from multimodal_etl.transform import run_transformation
 logger = get_logger(__name__)
 
 
-def _maintenant() -> str:
-    """Horodatage ISO de l'instant présent (UTC)."""
+def _now() -> str:
+    """Current instant as an ISO timestamp, in UTC."""
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 # --------------------------------------------------------------------------- #
-# Étape 1 — extraction
+# Step 1 — extract
 # --------------------------------------------------------------------------- #
 def run_extract(config: ExtractionConfig | None = None) -> dict[str, object]:
-    """Collecte les publications de toutes les sources et télécharge leurs images."""
-    logger.info("=== ÉTAPE 1 — EXTRACTION ===")
+    """Collect publications from every source and download their images."""
+    logger.info("=== STEP 1 — EXTRACT ===")
     ensure_dirs()
-    debut = time.perf_counter()
+    started = time.perf_counter()
 
-    archive, compte_rendu = run_extraction(config or ExtractionConfig())
+    archive, report = run_extraction(config or ExtractionConfig())
     transit.depose(archive, transit.EXTRACTION)
 
-    mesures = {
-        "horodatage": _maintenant(),
-        "duree_sec": round(time.perf_counter() - debut, 2),
+    metrics = {
+        "horodatage": _now(),
+        "duree_sec": round(time.perf_counter() - started, 2),
         "archive": str(archive),
-        # Un appel d'API consommé par exécution lorsque la source NewsData.io est active.
+        # One API call is spent per run while the NewsData.io source is enabled.
         "appels_api": 1 if newsdata.is_enabled() else 0,
-        **compte_rendu,
+        **report,
     }
-    transit.ecris_mesures("extraction", mesures)
-    return mesures
+    transit.ecris_mesures("extraction", metrics)
+    return metrics
 
 
 # --------------------------------------------------------------------------- #
-# Étape 2 — transformation
+# Step 2 — transform
 # --------------------------------------------------------------------------- #
 def run_transform(config: TransformConfig | None = None) -> dict[str, object]:
-    """Nettoie, valide et normalise les publications brutes en un dataset propre."""
-    logger.info("=== ÉTAPE 2 — TRANSFORMATION ===")
+    """Clean, validate and normalise the raw publications into a tidy dataset."""
+    logger.info("=== STEP 2 — TRANSFORM ===")
     ensure_dirs()
-    entree = transit.entree_extraction()
-    if entree is None:
-        raise FileNotFoundError(
-            "Aucune extraction disponible : lancez d'abord l'étape d'extraction."
-        )
+    source = transit.entree_extraction()
+    if source is None:
+        raise FileNotFoundError("No extraction available: run the extract step first.")
 
-    debut = time.perf_counter()
-    archive, stats = run_transformation(entree, config or TransformConfig())
+    started = time.perf_counter()
+    archive, stats = run_transformation(source, config or TransformConfig())
     transit.depose(archive, transit.DATASET)
 
-    mesures = {
-        "horodatage": _maintenant(),
-        "duree_sec": round(time.perf_counter() - debut, 2),
-        "entree": str(entree),
+    metrics = {
+        "horodatage": _now(),
+        "duree_sec": round(time.perf_counter() - started, 2),
+        "entree": str(source),
         "archive": str(archive),
         "stats": stats,
     }
-    transit.ecris_mesures("transformation", mesures)
-    return mesures
+    transit.ecris_mesures("transformation", metrics)
+    return metrics
 
 
 # --------------------------------------------------------------------------- #
-# Étape 3 — chargement
+# Step 3 — load
 # --------------------------------------------------------------------------- #
 def run_load(config: LoadConfig | None = None) -> dict[str, object]:
-    """Charge le dataset dans la base relationnelle, en n'ajoutant que les nouveautés."""
-    logger.info("=== ÉTAPE 3 — CHARGEMENT ===")
+    """Insert the publications that are not already in the relational database."""
+    logger.info("=== STEP 3 — LOAD ===")
     config = config or LoadConfig()
-    entree = transit.entree_dataset()
-    if entree is None:
-        raise FileNotFoundError(
-            "Aucun dataset disponible : lancez d'abord l'étape de transformation."
-        )
+    source = transit.entree_dataset()
+    if source is None:
+        raise FileNotFoundError("No dataset available: run the transform step first.")
 
-    debut = time.perf_counter()
-    bilan = load_dataset(entree, config)
+    started = time.perf_counter()
+    per_table = load_dataset(source, config)
 
-    mesures = {
-        "horodatage": _maintenant(),
-        "duree_sec": round(time.perf_counter() - debut, 2),
-        "entree": str(entree),
-        "bilan_tables": bilan,
-        "publications_ajoutees": bilan.get(config.table_name, 0),
+    metrics = {
+        "horodatage": _now(),
+        "duree_sec": round(time.perf_counter() - started, 2),
+        "entree": str(source),
+        "bilan_tables": per_table,
+        "publications_ajoutees": per_table.get(config.table_name, 0),
         "publications_en_base": compte_publications(config),
     }
-    transit.ecris_mesures("chargement", mesures)
-    return mesures
+    transit.ecris_mesures("chargement", metrics)
+    return metrics
 
 
 # --------------------------------------------------------------------------- #
-# Étape 4 — métriques d'exécution
+# Step 4 — run metrics
 # --------------------------------------------------------------------------- #
 def run_metrics(orchestrateur: str = "script") -> dict[str, object]:
-    """Consolide les mesures des trois étapes en une fiche d'exécution.
+    """Consolidate the metrics of the first three steps into one run record.
 
-    Cette fiche est le seul historique dont le tableau de bord a besoin : une par
-    exécution, conservée dans ``data/processed/runs/``.
+    That record is the only history the KPI dashboard needs: one per run, kept under
+    ``data/processed/runs/``.
     """
-    logger.info("=== ÉTAPE 4 — MÉTRIQUES ===")
+    logger.info("=== STEP 4 — METRICS ===")
     extraction = transit.lit_mesures("extraction")
     transformation = transit.lit_mesures("transformation")
-    chargement = transit.lit_mesures("chargement")
+    loading = transit.lit_mesures("chargement")
 
     images = extraction.get("images", {}) or {}
     run = {
-        "run_at": _maintenant(),
+        "run_at": _now(),
         "orchestrateur": orchestrateur,
         "durations_sec": {
             "extract": extraction.get("duree_sec", 0.0),
             "transform": transformation.get("duree_sec", 0.0),
-            "load": chargement.get("duree_sec", 0.0),
+            "load": loading.get("duree_sec", 0.0),
         },
         "rows_extracted": extraction.get("publications_extraites", 0),
-        "rows_loaded": chargement.get("publications_ajoutees", 0),
-        "rows_in_db": chargement.get("publications_en_base", 0),
+        "rows_loaded": loading.get("publications_ajoutees", 0),
+        "rows_in_db": loading.get("publications_en_base", 0),
         "api_calls": extraction.get("appels_api", 0),
         "bilan_sources": extraction.get("bilan_sources", {}),
         "failed_sources": extraction.get("failed_sources", 0),
@@ -161,19 +156,19 @@ def run_metrics(orchestrateur: str = "script") -> dict[str, object]:
     }
 
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
-    fichier = RUNS_DIR / f"run_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
-    fichier.write_text(json.dumps(run, ensure_ascii=False, indent=2), encoding="utf-8")
-    logger.info("Métriques : fiche d'exécution écrite dans %s", fichier)
+    record = RUNS_DIR / f"run_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
+    record.write_text(json.dumps(run, ensure_ascii=False, indent=2), encoding="utf-8")
+    logger.info("Metrics: run record written to %s", record)
 
-    run["fichier"] = str(fichier)
+    run["fichier"] = str(record)
     return run
 
 
 # --------------------------------------------------------------------------- #
-# Étape 5 — nettoyage de la zone de transit
+# Step 5 — clear the working area
 # --------------------------------------------------------------------------- #
 def run_cleanup() -> dict[str, object]:
-    """Supprime les fichiers temporaires une fois qu'ils ont tous été consommés."""
-    logger.info("=== ÉTAPE 5 — NETTOYAGE ===")
-    supprimes = transit.vide()
-    return {"fichiers_supprimes": supprimes, "nombre": len(supprimes)}
+    """Delete the temporary files once every one of them has been consumed."""
+    logger.info("=== STEP 5 — CLEANUP ===")
+    removed = transit.vide()
+    return {"fichiers_supprimes": removed, "nombre": len(removed)}
