@@ -1,15 +1,15 @@
-# docker-compose — Apache Airflow en local (executeur LocalExecutor).
+# docker-compose — Apache Airflow, locally, on the LocalExecutor.
 #
-# Configuration volontairement minimale et lisible (un seul scheduler + webserver
-# + une base de metadonnees PostgreSQL), suffisante pour faire tourner le DAG
-# `multimodal_etl` en local et produire des preuves d'execution (logs, UI).
+# Deliberately minimal and readable (one scheduler + webserver, plus a PostgreSQL
+# metadata database), which is enough to run the `multimodal_etl` DAG locally and
+# produce run evidence (logs, UI).
 #
-# Demarrage :  docker compose -f docker/docker-compose.airflow.yaml up -d
-# Interface :  http://localhost:8080  (identifiants : airflow / airflow)
-# Voir le pas-a-pas complet dans docs/runbook_airflow.md.
+# Start with:  docker compose -f docker/docker-compose.airflow.yaml up -d
+# Interface:   http://localhost:8080  (credentials: airflow / airflow)
+# The full walkthrough is in docs/airflow_runbook.md.
 
 x-airflow-common: &airflow-common
-  # Image Airflow officielle enrichie des dependances du pipeline (cf. Dockerfile).
+  # The official Airflow image, with the pipeline's dependencies added (see Dockerfile).
   image: multimodal_etl/airflow:2.10.4
   build:
     context: .
@@ -19,20 +19,20 @@ x-airflow-common: &airflow-common
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
-    # Le package multimodal_etl est rendu importable via le code source monte.
+    # The multimodal_etl package is made importable through the mounted source tree.
     PYTHONPATH: /opt/airflow/project/src
-    # Cle NewsData.io transmise depuis docker/.env (source API optionnelle).
+    # NewsData.io key passed through from docker/.env (an optional API source).
     NEWSDATA_API_KEY: ${NEWSDATA_API_KEY:-}
     MULTIMODAL_ETL_DB_URL: ${MULTIMODAL_ETL_DB_URL:-}
   volumes:
     - ../dags:/opt/airflow/dags
-    # Les journaux Airflow restent dans un volume Docker : les monter sur le disque
-    # hote poserait un probleme de droits d'ecriture (surtout sous Windows).
+    # The Airflow logs stay in a Docker volume: mounting them on the host disk would
+    # raise write-permission problems, especially on Windows.
     - airflow-logs:/opt/airflow/logs
     - ../:/opt/airflow/project
-  # AIRFLOW_UID : identifiant de l'utilisateur qui ecrit dans le projet monte.
-  # Sous Linux/macOS, mettre la sortie de `id -u`. Sous Windows, 0 (root) evite les
-  # refus d'ecriture sur le dossier data/ partage.
+  # AIRFLOW_UID: the user id that writes into the mounted project.
+  # On Linux/macOS use the output of `id -u`. On Windows, 0 (root) avoids write
+  # refusals on the shared data/ folder.
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     postgres:

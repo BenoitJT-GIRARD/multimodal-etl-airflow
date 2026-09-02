@@ -23,12 +23,12 @@ dependencies = [
     "lxml>=5.3",
     "tldextract>=5.1",
     "python-dotenv>=1.0",
-    # Transformation / stockage
+    # Transformation / storage
     "pandas>=2.2",
     "pyarrow>=16",
     "pillow>=10.4",
     "sqlalchemy>=2.0",
-    # Tableau de bord KPI
+    # KPI dashboard
     "streamlit>=1.39",
     "plotly>=5.24",
 ]
@@ -84,8 +84,8 @@ ignore = [
 "tests/*" = ["S101"]
 "scripts/*" = ["T201", "E402"]
 "dags/*" = ["E402"]
-# Dans un notebook, la premiere cellule ajoute src/ au chemin d'import : les imports
-# qui suivent viennent donc apres du code, et sont repartis entre plusieurs cellules.
+# In a notebook the first cell adds src/ to the import path, so the imports that follow
+# come after code, and are spread across several cells.
 "notebooks/**/*.ipynb" = ["E402", "F401", "I001"]
 
 [tool.ruff.format]

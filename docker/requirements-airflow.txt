@@ -1,11 +1,11 @@
-# Dependances d'execution du pipeline Multimodal ETL, installees dans l'image Airflow.
+# Runtime dependencies of the Multimodal ETL pipeline, installed into the Airflow image.
 #
-# Volontairement sans numeros de version : les versions sont imposees par le
-# fichier de contraintes officiel d'Airflow (cf. Dockerfile). Sans lui, pip
-# remplacerait des bibliotheques dont Airflow depend lui-meme (SQLAlchemy en
-# particulier) et le scheduler ne demarrerait plus.
+# Deliberately without version numbers: the versions are imposed by Airflow's
+# official constraints file (see the Dockerfile). Without it, pip would replace
+# libraries Airflow itself depends on — SQLAlchemy in particular — and the
+# scheduler would no longer start.
 #
-# Streamlit et les outils de developpement ne sont pas necessaires cote Airflow.
+# Streamlit and the development tools are not needed on the Airflow side.
 requests
 feedparser
 beautifulsoup4
