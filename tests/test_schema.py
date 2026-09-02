@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from multimodal_etl.schema import COLUMNS, ENTITES, FIELDS, Publication, fields_of
+from multimodal_etl.schema import COLUMNS, ENTITIES, FIELDS, Publication, fields_of
 
 
 def _sample_publication() -> Publication:
@@ -38,13 +38,13 @@ def test_every_field_has_a_known_role() -> None:
 
 def test_every_field_belongs_to_a_declared_entity() -> None:
     for spec in FIELDS:
-        assert spec.entite in ENTITES
+        assert spec.entity in ENTITIES
 
 
 def test_every_entity_carries_at_least_one_field() -> None:
     # Sans cela, le diagramme conceptuel afficherait une entité clear.
-    for entite in ENTITES:
-        assert fields_of(entite), f"entité sans champ : {entite}"
+    for entity in ENTITIES:
+        assert fields_of(entity), f"entité sans champ : {entity}"
 
 
 def test_the_schema_covers_the_essential_modalities() -> None:

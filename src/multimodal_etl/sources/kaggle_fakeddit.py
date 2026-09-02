@@ -1,20 +1,18 @@
-"""Connecteur 4 — Fakeddit, jeu de données multimodal hébergé sur Kaggle.
+"""Connector 4 — Fakeddit, a multimodal dataset hosted on Kaggle.
 
-Fakeddit (Nakamura *et al.*, 2020) rassemble plus d'un million de publications
-Reddit associant **un titre et une image**, avec trois niveaux de labels (binaire,
-3 classes, 6 classes). C'est la source la plus proche du cas d'usage : elle est
-nativement multimodale, contrairement à FakeNewsNet.
+Fakeddit (Nakamura *et al.*, 2020) gathers more than a million Reddit publications pairing
+**a title and an image**, with three levels of labels (binary, 3 classes, 6 classes). It
+is the source closest to the use case: unlike FakeNewsNet, it is natively multimodal.
 
-Le téléchargement d'un jeu Kaggle demande un compte et une clé d'API. Plutôt que
-d'introduire une dépendance et un secret supplémentaires dans le pipeline, on
-procède comme en entreprise pour un jeu de référence figé : **le fichier est
-téléchargé une fois, à la main**, puis déposé dans ``data/raw/kaggle/``. Le
-connecteur se contente de le lire.
+Downloading a Kaggle dataset requires an account and an API key. Rather than add a
+dependency and one more secret to the pipeline, we do what a company does with a frozen
+reference dataset: **the file is downloaded once, by hand**, then dropped into
+``data/raw/kaggle/``. The connector only reads it.
 
-Si le fichier n'est pas présent, le connecteur bascule sur un **échantillon de
-démonstration versionné** (``data/samples/fakeddit_sample.tsv``) : contenus
-fabriqués, structure de colonnes identique à celle du jeu réel, images libres de
-droits. Le pipeline reste ainsi exécutable par n'importe qui, immédiatement.
+When the file is absent, the connector falls back to a **versioned demonstration sample**
+(``data/samples/fakeddit_sample.tsv``): made-up contents, the same column structure as the
+real dataset, royalty-free images. The pipeline therefore stays runnable by anyone,
+straight away.
 """
 
 from __future__ import annotations
@@ -27,86 +25,86 @@ from multimodal_etl.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
-DOSSIER_KAGGLE = RAW_DIR / "kaggle"
-ECHANTILLON = SAMPLES_DIR / "fakeddit_sample.tsv"
+KAGGLE_DIR = RAW_DIR / "kaggle"
+SAMPLE_FILE = SAMPLES_DIR / "fakeddit_sample.tsv"
 
-# Fakeddit code la vérité terrain dans la colonne 2_way_label : 1 = authentique.
+# Fakeddit encodes the ground truth in the 2_way_label column: 1 = genuine.
 _LABELS = {"1": "real", "0": "fake"}
 
 
 def pick_file() -> tuple[Path, bool] | None:
-    """Choisit la source de données : jeu Kaggle réel si présent, sinon échantillon.
+    """Choose the data source: the real Kaggle dataset if present, else the sample.
 
-    Renvoie le chemin et un booléen indiquant s'il s'agit du jeu réel.
+    Returns the path and a boolean saying whether this is the real dataset.
     """
-    if DOSSIER_KAGGLE.exists():
-        fichiers = sorted(DOSSIER_KAGGLE.glob("*.tsv"))
-        if fichiers:
-            logger.info("Fakeddit : jeu Kaggle détecté (%s)", fichiers[0].name)
-            return fichiers[0], True
+    if KAGGLE_DIR.exists():
+        files = sorted(KAGGLE_DIR.glob("*.tsv"))
+        if files:
+            logger.info("Fakeddit: Kaggle dataset detected (%s)", files[0].name)
+            return files[0], True
 
-    if ECHANTILLON.exists():
-        logger.info("Fakeddit : jeu Kaggle absent, utilisation de %s", ECHANTILLON.name)
-        return ECHANTILLON, False
+    if SAMPLE_FILE.exists():
+        logger.info("Fakeddit: Kaggle dataset absent, falling back to %s", SAMPLE_FILE.name)
+        return SAMPLE_FILE, False
 
     return None
 
 
-def read_tsv(path_for: Path) -> list[dict[str, str]]:
-    """Lit un fichier Fakeddit (valeurs séparées par des tabulations)."""
-    with path_for.open("r", encoding="utf-8", newline="") as fichier:
-        return list(csv.DictReader(fichier, delimiter="\t"))
+def read_tsv(path: Path) -> list[dict[str, str]]:
+    """Read a Fakeddit file (tab-separated values)."""
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle, delimiter="\t"))
 
 
-def _build_record(ligne: dict[str, str]) -> dict[str, object]:
-    """Transforme une ligne Fakeddit en dictionnaire brut normalisé."""
-    titre = ligne.get("clean_title") or ligne.get("title") or ""
-    image_url = ligne.get("image_url", "").strip()
+def _build_record(row: dict[str, str]) -> dict[str, object]:
+    """Turn a Fakeddit row into a normalised raw dictionary."""
+    title = row.get("clean_title") or row.get("title") or ""
+    image_url = row.get("image_url", "").strip()
     return {
-        # Fakeddit est une seule source, quel que soit le sous-forum d'origine :
-        # découper par subreddit fragmenterait les répartitions en une quinzaine
-        # de lignes sans intérêt pour le suivi.
+        # Fakeddit is one single source, whatever the originating subreddit: splitting by
+        # subreddit would fragment the distributions into fifteen or so rows of no use for
+        # monitoring.
         "source": "fakeddit",
         "source_type": "dataset",
         "access_method": "telechargement_kaggle",
-        "title": titre,
-        # Fakeddit ne publie pas de corps d'article : le titre est le signal texte.
-        "text": titre,
-        # Fakeddit identifie chaque publication par son identifiant Reddit : on
-        # reconstruit le permalien, qui sert de clé de traçabilité et de déduplication.
-        "url": f"https://redd.it/{ligne.get('id', '')}",
+        "title": title,
+        # Fakeddit publishes no article body: the title is the text signal.
+        "text": title,
+        # Fakeddit identifies each publication by its Reddit id: we rebuild the permalink,
+        # which serves as the traceability and deduplication key.
+        "url": f"https://redd.it/{row.get('id', '')}",
         "image_url": image_url,
         "image_source": "native" if image_url else "aucune",
-        "published_at": ligne.get("created_utc", ""),
+        "published_at": row.get("created_utc", ""),
         "language": "en",
-        "label": _LABELS.get(ligne.get("2_way_label", "").strip(), "unverified"),
+        "label": _LABELS.get(row.get("2_way_label", "").strip(), "unverified"),
         "label_source": "fakeddit",
     }
 
 
 def fetch_fakeddit(config: ExtractionConfig) -> list[dict[str, object]]:
-    """Charge les publications multimodales Fakeddit."""
-    choix = pick_file()
-    if choix is None:
+    """Load the multimodal Fakeddit publications."""
+    choice = pick_file()
+    if choice is None:
         logger.warning(
-            "Fakeddit : aucune donnée disponible. Déposez le fichier .tsv dans %s "
-            "(procédure dans le rapport d'exploration).",
-            DOSSIER_KAGGLE,
+            "Fakeddit: no data available. Drop the .tsv file into %s "
+            "(the procedure is in the exploration report).",
+            KAGGLE_DIR,
         )
         return []
 
-    path_for, est_reel = choix
-    lignes = read_tsv(path_for)
+    path, is_real = choice
+    rows = read_tsv(path)
 
-    # Le jeu réel ne garde que les publications réellement multimodales.
-    avec_image = [ligne for ligne in lignes if ligne.get("image_url", "").strip()]
-    retenues = avec_image[: config.max_items_per_source]
+    # The real dataset keeps only the publications that are genuinely multimodal.
+    with_image = [row for row in rows if row.get("image_url", "").strip()]
+    kept = with_image[: config.max_items_per_source]
 
-    records = [_build_record(ligne) for ligne in retenues]
+    records = [_build_record(row) for row in kept]
     logger.info(
-        "Fakeddit : %d publications chargées depuis %s (%s)",
+        "Fakeddit: %d publications loaded from %s (%s)",
         len(records),
-        path_for.name,
-        "jeu Kaggle réel" if est_reel else "échantillon de démonstration",
+        path.name,
+        "real Kaggle dataset" if is_real else "demonstration sample",
     )
     return records

@@ -1,10 +1,9 @@
-"""Connecteur 2 — API NewsData.io.
+"""Connector 2 — the NewsData.io API.
 
-NewsData.io expose un point d'API REST renvoyant des articles d'actualite au
-format JSON, avec un champ ``image_url`` directement exploitable (donnee
-multimodale). La source n'est activee que si une cle ``NEWSDATA_API_KEY`` est
-presente dans l'environnement : sans cle, le connecteur se desactive proprement
-et le pipeline continue avec les autres sources.
+NewsData.io exposes a REST endpoint returning news articles as JSON, with an
+``image_url`` field that is directly usable (multimodal data). The source only turns on
+when a ``NEWSDATA_API_KEY`` is present in the environment: without a key the connector
+disables itself cleanly and the pipeline carries on with the other sources.
 """
 
 from __future__ import annotations
@@ -20,12 +19,12 @@ logger = get_logger(__name__)
 
 
 def is_enabled() -> bool:
-    """Indique si la cle API est disponible (source activable)."""
+    """Say whether the API key is available, i.e. whether the source can run."""
     return bool(os.environ.get("NEWSDATA_API_KEY", "").strip())
 
 
 def _parse_article(article: dict[str, object]) -> dict[str, object]:
-    """Transforme un article NewsData.io en dictionnaire brut normalisé."""
+    """Turn a NewsData.io article into a normalised raw dictionary."""
     image_url = article.get("image_url") or ""
     return {
         "source": "newsdata",
@@ -38,30 +37,30 @@ def _parse_article(article: dict[str, object]) -> dict[str, object]:
         "image_source": "native" if image_url else "aucune",
         "published_at": article.get("pubDate") or "",
         "language": article.get("language") or "en",
-        # NewsData.io ne fournit pas de label vrai/faux fiable.
+        # NewsData.io provides no reliable true/false label.
         "label": None,
         "label_source": None,
     }
 
 
 def fetch_newsdata(config: ExtractionConfig) -> list[dict[str, object]]:
-    """Interroge l'API NewsData.io et renvoie les articles porteurs d'image.
+    """Query the NewsData.io API and return the articles that carry an image.
 
-    Gestion explicite des limites d'appel : on lit une seule page (le palier
-    gratuit est limite a 10 articles par requete et a un quota journalier), on
-    pose un timeout, et on capture toute erreur reseau ou HTTP.
+    Call limits are handled explicitly: we read a single page — the free tier caps a
+    request at 10 articles and enforces a daily quota — we set a timeout, and we catch
+    every network or HTTP error.
     """
     api_key = os.environ.get("NEWSDATA_API_KEY", "").strip()
     if not api_key:
-        logger.info("NewsData.io : aucune cle API, source ignoree.")
+        logger.info("NewsData.io: no API key, source skipped.")
         return []
 
     params = {
         "apikey": api_key,
         "language": config.newsdata_language,
-        "image": 1,  # ne demande que des articles avec image (multimodal)
+        "image": 1,  # only ask for articles that have an image (multimodal)
     }
-    logger.info("NewsData.io : appel de l'API (%s)", config.newsdata_endpoint)
+    logger.info("NewsData.io: calling the API (%s)", config.newsdata_endpoint)
     try:
         response = requests.get(
             config.newsdata_endpoint,
@@ -71,15 +70,15 @@ def fetch_newsdata(config: ExtractionConfig) -> list[dict[str, object]]:
         )
         response.raise_for_status()
     except requests.RequestException as exc:
-        logger.error("NewsData.io : echec de l'appel API : %s", exc)
+        logger.error("NewsData.io: the API call failed: %s", exc)
         return []
 
     payload = response.json()
     if payload.get("status") != "success":
-        logger.warning("NewsData.io : reponse en erreur : %s", payload.get("results"))
+        logger.warning("NewsData.io: the response reports an error: %s", payload.get("results"))
         return []
 
     articles = payload.get("results", [])[: config.max_items_per_source]
     records = [_parse_article(article) for article in articles]
-    logger.info("NewsData.io : %d articles recuperes", len(records))
+    logger.info("NewsData.io: %d articles collected", len(records))
     return records

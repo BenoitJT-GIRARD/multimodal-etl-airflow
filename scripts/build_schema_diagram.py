@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from multimodal_etl.schema import ENTITES, fields_of
+from multimodal_etl.schema import ENTITIES, fields_of
 
 DOCS_DIR = ROOT / "docs"
 
@@ -50,13 +50,13 @@ def _mermaid_type(dtype: str) -> str:
     return correspondance.get(dtype, dtype)
 
 
-def _key(entite: str, nom: str) -> str:
-    """Indique si un champ est cle primaire ou cle etrangere dans son entite."""
-    if entite == "PUBLICATION" and nom == "id":
+def _key(entity: str, nom: str) -> str:
+    """Indique si un champ est cle primaire ou cle etrangere dans son entity."""
+    if entity == "PUBLICATION" and nom == "id":
         return "PK"
-    if entite == "PUBLICATION" and nom == "source_id":
+    if entity == "PUBLICATION" and nom == "source_id":
         return "FK"
-    if entite == "SOURCE" and nom == "source_id":
+    if entity == "SOURCE" and nom == "source_id":
         return "PK"
     # Les entites de contenu partagent la cle de la publication qu'elles decrivent.
     if nom == "id":
@@ -74,17 +74,17 @@ def build_mermaid() -> str:
     lignes.append("")
 
     # Entites et attributs (type + role + cle).
-    for entite in ENTITES:
-        lignes.append(f"    {entite} {{")
-        # La cle de jointure est rappelee sur chaque entite de contenu.
-        if entite in {"CONTENU_TEXTE", "CONTENU_IMAGE", "LABEL"}:
+    for entity in ENTITIES:
+        lignes.append(f"    {entity} {{")
+        # La cle de jointure est rappelee sur chaque entity de contenu.
+        if entity in {"CONTENU_TEXTE", "CONTENU_IMAGE", "LABEL"}:
             lignes.append('        string id PK "KEY"')
-        if entite == "SOURCE":
+        if entity == "SOURCE":
             lignes.append('        string source_id PK "KEY"')
-        for spec in fields_of(entite):
+        for spec in fields_of(entity):
             lignes.append(
                 f"        {_mermaid_type(spec.dtype)} {spec.name} "
-                f'{_key(entite, spec.name)} "{spec.role}"'
+                f'{_key(entity, spec.name)} "{spec.role}"'
             )
         lignes.append("    }")
         lignes.append("")
@@ -126,9 +126,7 @@ def render_diagram(mmd_path: Path) -> None:
             )
             print(f"[ok] rendu genere : {sortie.name}")
         except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-            print(
-                f"[warn] rendu {extension} non genere ({exc}). Le .mmd reste exploitable."
-            )
+            print(f"[warn] rendu {extension} non genere ({exc}). Le .mmd reste exploitable.")
 
 
 def main() -> None:

@@ -1,18 +1,17 @@
-"""Connecteurs d'extraction, un module par source de données.
+"""Extraction connectors, one module per data source.
 
-Chaque connecteur expose une fonction ``fetch_*`` qui renvoie une liste de
-dictionnaires « bruts » partageant les mêmes clés (:data:`RAW_KEYS`), afin que
-l'étape de transformation puisse les traiter de manière uniforme quelle que soit
-l'origine de la donnée.
+Every connector exposes a ``fetch_*`` function returning a list of "raw" dictionaries
+that share the same keys (:data:`RAW_KEYS`), so that the transform step can process them
+uniformly whatever the data came from.
 
-Le champ ``access_method`` trace **comment** la donnée a été obtenue : c'est ce qui
-permet, dans le rapport d'exploration comme dans les KPI, de rattacher chaque
-publication à sa méthode d'accès (flux, API, téléchargement de jeu de données).
+The ``access_method`` field records **how** the data was obtained: that is what lets the
+exploration report and the KPIs attribute each publication to its access method (feed,
+API, dataset download).
 """
 
 from __future__ import annotations
 
-# Clés minimales garanties par chaque connecteur en sortie.
+# Minimum keys every connector guarantees on output.
 RAW_KEYS: tuple[str, ...] = (
     "source",
     "source_type",
@@ -28,14 +27,14 @@ RAW_KEYS: tuple[str, ...] = (
     "label_source",
 )
 
-# Valeurs autorisées pour ``access_method``.
-METHODES_ACCES: tuple[str, ...] = (
+# Allowed values for ``access_method``.
+ACCESS_METHODS: tuple[str, ...] = (
     "flux_rss",
     "api_rest",
     "telechargement_github",
     "telechargement_kaggle",
 )
 
-# Valeurs autorisées pour ``image_source`` : l'image est soit fournie directement
-# par la source, soit retrouvée dans les métadonnées Open Graph de l'article.
-ORIGINES_IMAGE: tuple[str, ...] = ("native", "open_graph", "aucune")
+# Allowed values for ``image_source``: the image is either supplied directly by the
+# source, or found in the article's Open Graph metadata.
+IMAGE_ORIGINS: tuple[str, ...] = ("native", "open_graph", "aucune")

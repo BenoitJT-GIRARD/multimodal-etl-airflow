@@ -89,13 +89,13 @@ def download_image(image_url: str, config: ImageConfig, dossier: Path | None = N
 
     # 1. Le serveur annonce-t-il bien une image d'un type que l'on sait lire ?
     type_mime = reponse.headers.get("Content-Type", "").split(";")[0].strip().lower()
-    if type_mime not in config.types_mime_acceptes:
+    if type_mime not in config.accepted_mime_types:
         logger.warning("Image : type '%s' refusé pour %s", type_mime, image_url[:80])
         return None
 
     # 2. Le fichier tient-il dans le budget disque fixé ?
     poids_mo = len(reponse.content) / (1024 * 1024)
-    if poids_mo > config.taille_max_mo:
+    if poids_mo > config.max_size_mb:
         logger.warning("Image : %.1f Mo au-dessus de la limite pour %s", poids_mo, image_url[:80])
         return None
 

@@ -128,7 +128,7 @@ def test_enrich_publications_respects_the_cap(monkeypatch) -> None:
     records = [{"url": f"https://site.com/{i}", "image_url": ""} for i in range(5)]
 
     compteurs = opengraph.enrich_publications(
-        records, ExtractionConfig(max_enrichissements_open_graph=2)
+        records, ExtractionConfig(max_open_graph_enrichments=2)
     )
 
     assert compteurs == {"tentees": 2, "trouvees": 2}
@@ -152,7 +152,7 @@ def test_enrich_publications_skips_those_that_already_have_an_image(monkeypatch)
 def test_fakeddit_reads_the_versioned_sample(tmp_path: Path, monkeypatch) -> None:
     # Le dossier Kaggle est vidé pour que le test ne dépende pas de la présence du
     # jeu réel sur la machine : c'est bien le repli sur l'échantillon qu'on vérifie.
-    monkeypatch.setattr(kaggle_fakeddit, "DOSSIER_KAGGLE", tmp_path / "vide")
+    monkeypatch.setattr(kaggle_fakeddit, "KAGGLE_DIR", tmp_path / "vide")
 
     records = kaggle_fakeddit.fetch_fakeddit(ExtractionConfig(max_items_per_source=5))
 
@@ -172,7 +172,7 @@ def test_fakeddit_prefers_the_real_kaggle_dataset(tmp_path: Path, monkeypatch) -
         "abc123\tUn titre reel\thttps://site.com/i.jpg\tTrue\tnews\t1\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(kaggle_fakeddit, "DOSSIER_KAGGLE", dossier)
+    monkeypatch.setattr(kaggle_fakeddit, "KAGGLE_DIR", dossier)
 
     records = kaggle_fakeddit.fetch_fakeddit(ExtractionConfig())
 
@@ -190,7 +190,7 @@ def test_fakeddit_discards_rows_without_an_image(tmp_path: Path, monkeypatch) ->
         "b\tSans image\t\tFalse\tnews\t0\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(kaggle_fakeddit, "DOSSIER_KAGGLE", dossier)
+    monkeypatch.setattr(kaggle_fakeddit, "KAGGLE_DIR", dossier)
 
     records = kaggle_fakeddit.fetch_fakeddit(ExtractionConfig())
 

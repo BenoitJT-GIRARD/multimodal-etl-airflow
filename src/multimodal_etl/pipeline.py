@@ -65,7 +65,7 @@ def run_extract(config: ExtractionConfig | None = None) -> dict[str, object]:
         "appels_api": 1 if newsdata.is_enabled() else 0,
         **report,
     }
-    transit.write_metrics("extraction", metrics)
+    transit.write_metrics("extract", metrics)
     return metrics
 
 
@@ -91,7 +91,7 @@ def run_transform(config: TransformConfig | None = None) -> dict[str, object]:
         "archive": str(archive),
         "stats": stats,
     }
-    transit.write_metrics("transformation", metrics)
+    transit.write_metrics("transform", metrics)
     return metrics
 
 
@@ -117,7 +117,7 @@ def run_load(config: LoadConfig | None = None) -> dict[str, object]:
         "publications_ajoutees": per_table.get(config.table_name, 0),
         "publications_en_base": count_publications(config),
     }
-    transit.write_metrics("chargement", metrics)
+    transit.write_metrics("load", metrics)
     return metrics
 
 
@@ -131,9 +131,9 @@ def run_metrics(orchestrateur: str = "script") -> dict[str, object]:
     ``data/processed/runs/``.
     """
     logger.info("=== STEP 4 — METRICS ===")
-    extraction = transit.read_metrics("extraction")
-    transformation = transit.read_metrics("transformation")
-    loading = transit.read_metrics("chargement")
+    extraction = transit.read_metrics("extract")
+    transformation = transit.read_metrics("transform")
+    loading = transit.read_metrics("load")
 
     images = extraction.get("images", {}) or {}
     run = {

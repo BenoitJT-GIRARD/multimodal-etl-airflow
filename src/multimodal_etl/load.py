@@ -33,7 +33,7 @@ from sqlalchemy.engine import Engine
 
 from multimodal_etl.config import LoadConfig, ensure_dirs
 from multimodal_etl.logging_setup import get_logger
-from multimodal_etl.schema import ENTITES, fields_of
+from multimodal_etl.schema import ENTITIES, fields_of
 
 logger = get_logger(__name__)
 
@@ -85,10 +85,10 @@ def split_into_tables(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """
     tables: dict[str, pd.DataFrame] = {}
 
-    for entite in ENTITES:
-        table = TABLES[entite]
+    for entity in ENTITIES:
+        table = TABLES[entity]
         cle = primary_key(table)
-        colonnes = [cle] + [spec.name for spec in fields_of(entite) if spec.name != cle]
+        colonnes = [cle] + [spec.name for spec in fields_of(entity) if spec.name != cle]
 
         morceau = df[colonnes].copy()
         if table == "source":

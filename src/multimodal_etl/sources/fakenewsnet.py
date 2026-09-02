@@ -1,18 +1,17 @@
-"""Connecteur 3 — FakeNewsNet, jeu de données labellisé hébergé sur GitHub.
+"""Connector 3 — FakeNewsNet, a labelled dataset hosted on GitHub.
 
-FakeNewsNet (Shu *et al.*, 2018) est la référence académique pour la détection de
-fake news : chaque publication y porte un **label de vérité terrain** (``real`` /
-``fake``) issu de PolitiFact ou de GossipCop. Les fichiers d'index sont publiés en
-clair dans le dépôt GitHub officiel, on les récupère donc **directement depuis
-GitHub**, sans authentification.
+FakeNewsNet (Shu *et al.*, 2018) is the academic reference for fake-news detection: every
+publication carries a **ground-truth label** (``real`` / ``fake``) from PolitiFact or
+GossipCop. The index files are published in the clear in the official GitHub repository,
+so we fetch them **straight from GitHub**, with no authentication.
 
-Deux particularités traitées ici, et elles sont typiques du métier :
+Two quirks are handled here, and both are typical of the job:
 
-1. les CSV ne contiennent **ni texte long ni image** — seulement l'identifiant,
-   l'URL de l'article et son titre. L'image est donc retrouvée dans les
-   métadonnées Open Graph de l'article (cf. :mod:`multimodal_etl.sources.opengraph`) ;
-2. la colonne ``tweet_ids`` peut dépasser la taille de champ que le module ``csv``
-   accepte par défaut : il faut relever explicitement cette limite.
+1. the CSVs contain **neither long text nor image** — only the identifier, the article URL
+   and its title. The image is therefore recovered from the article's Open Graph metadata
+   (see :mod:`multimodal_etl.sources.opengraph`);
+2. the ``tweet_ids`` column can exceed the field size the ``csv`` module accepts by
+   default: that limit has to be raised explicitly.
 """
 
 from __future__ import annotations
@@ -29,101 +28,100 @@ from multimodal_etl.sources import opengraph
 
 logger = get_logger(__name__)
 
-# Dossier de cache : une fois les CSV téléchargés, les exécutions suivantes sont
-# hors-ligne et strictement reproductibles.
+# Cache directory: once the CSVs are downloaded, later runs are offline and strictly
+# reproducible.
 CACHE_DIR = RAW_DIR / "fakenewsnet"
 
-# La colonne tweet_ids contient des milliers d'identifiants séparés par des
-# tabulations : sans cela, le module csv lève « field larger than field limit ».
+# The tweet_ids column holds thousands of tab-separated identifiers: without this, the
+# csv module raises "field larger than field limit".
 csv.field_size_limit(10_000_000)
 
 
-def _source_name(fichier: str) -> tuple[str, str]:
-    """Déduit l'organisme de vérification et le label du nom de fichier.
+def _source_name(filename: str) -> tuple[str, str]:
+    """Infer the fact-checking organisation and the label from the file name.
 
     ``politifact_fake.csv`` -> ``("politifact", "fake")``
     """
-    tige = Path(fichier).stem
-    organisme, _, label = tige.partition("_")
-    return organisme, label
+    stem = Path(filename).stem
+    organisation, _, label = stem.partition("_")
+    return organisation, label
 
 
-def download_csv(fichier: str, config: ExtractionConfig) -> Path | None:
-    """Télécharge un CSV FakeNewsNet depuis GitHub, ou renvoie la copie en cache."""
+def download_csv(filename: str, config: ExtractionConfig) -> Path | None:
+    """Download a FakeNewsNet CSV from GitHub, or return the cached copy."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    destination = CACHE_DIR / fichier
+    destination = CACHE_DIR / filename
 
     if destination.exists():
-        logger.info("FakeNewsNet : '%s' déjà en cache", fichier)
+        logger.info("FakeNewsNet: '%s' already cached", filename)
         return destination
 
-    url = f"{config.fakenewsnet_base_url}/{fichier}"
-    logger.info("FakeNewsNet : téléchargement de %s", url)
+    url = f"{config.fakenewsnet_base_url}/{filename}"
+    logger.info("FakeNewsNet: downloading %s", url)
     try:
-        reponse = requests.get(
+        response = requests.get(
             url, timeout=config.request_timeout, headers={"User-Agent": config.user_agent}
         )
-        reponse.raise_for_status()
+        response.raise_for_status()
     except requests.RequestException as exc:
-        logger.error("FakeNewsNet : téléchargement impossible (%s) : %s", fichier, exc)
+        logger.error("FakeNewsNet: download failed (%s): %s", filename, exc)
         return None
 
-    destination.write_text(reponse.text, encoding="utf-8")
-    logger.info("FakeNewsNet : '%s' enregistré (%d octets)", fichier, len(reponse.content))
+    destination.write_text(response.text, encoding="utf-8")
+    logger.info("FakeNewsNet: '%s' saved (%d bytes)", filename, len(response.content))
     return destination
 
 
-def read_csv(path_for: Path) -> list[dict[str, str]]:
-    """Lit un CSV FakeNewsNet en liste de dictionnaires."""
-    contenu = path_for.read_text(encoding="utf-8", errors="replace")
-    return list(csv.DictReader(io.StringIO(contenu)))
+def read_csv(path: Path) -> list[dict[str, str]]:
+    """Read a FakeNewsNet CSV into a list of dictionaries."""
+    content = path.read_text(encoding="utf-8", errors="replace")
+    return list(csv.DictReader(io.StringIO(content)))
 
 
-def _build_record(ligne: dict[str, str], organisme: str, label: str) -> dict[str, object]:
-    """Transforme une ligne FakeNewsNet en dictionnaire brut normalisé."""
+def _build_record(row: dict[str, str], organisation: str, label: str) -> dict[str, object]:
+    """Turn a FakeNewsNet row into a normalised raw dictionary."""
     return {
-        "source": f"fakenewsnet:{organisme}",
+        "source": f"fakenewsnet:{organisation}",
         "source_type": "dataset",
         "access_method": "telechargement_github",
-        "title": ligne.get("title", ""),
-        # Les CSV n'exposent pas le corps de l'article : le titre porte le signal texte.
-        "text": ligne.get("title", ""),
-        "url": opengraph.normalise_url(ligne.get("news_url", "")),
+        "title": row.get("title", ""),
+        # The CSVs do not expose the article body: the title carries the text signal.
+        "text": row.get("title", ""),
+        "url": opengraph.normalise_url(row.get("news_url", "")),
         "image_url": "",
         "image_source": "aucune",
         "published_at": "",
         "language": "en",
         "label": label,
-        "label_source": f"fakenewsnet:{organisme}",
+        "label_source": f"fakenewsnet:{organisation}",
     }
 
 
 def fetch_fakenewsnet(config: ExtractionConfig) -> list[dict[str, object]]:
-    """Charge les publications labellisées FakeNewsNet et retrouve leurs images.
+    """Load the labelled FakeNewsNet publications and recover their images.
 
-    On prélève le même nombre de lignes dans chaque fichier afin de garder un
-    équilibre entre ``real`` et ``fake`` et entre les deux organismes de
-    vérification.
+    We take the same number of rows from each file, to keep a balance between ``real``
+    and ``fake`` and between the two fact-checking organisations.
     """
-    par_fichier = max(1, config.max_items_per_source // len(config.fakenewsnet_files))
+    per_file = max(1, config.max_items_per_source // len(config.fakenewsnet_files))
     records: list[dict[str, object]] = []
 
-    for fichier in config.fakenewsnet_files:
-        path_for = download_csv(fichier, config)
-        if path_for is None:
+    for filename in config.fakenewsnet_files:
+        path = download_csv(filename, config)
+        if path is None:
             continue
 
-        organisme, label = _source_name(fichier)
-        lignes = read_csv(path_for)[:par_fichier]
-        records.extend(_build_record(ligne, organisme, label) for ligne in lignes)
-        logger.info("FakeNewsNet : %d lignes lues dans %s", len(lignes), fichier)
+        organisation, label = _source_name(filename)
+        rows = read_csv(path)[:per_file]
+        records.extend(_build_record(row, organisation, label) for row in rows)
+        logger.info("FakeNewsNet: %d rows read from %s", len(rows), filename)
 
     if not records:
-        logger.warning("FakeNewsNet : aucune donnée récupérée.")
+        logger.warning("FakeNewsNet: no data collected.")
         return []
 
-    # Les CSV ne portent pas d'image : on va la chercher chez l'éditeur.
+    # The CSVs carry no image: we go and fetch one from the publisher.
     opengraph.enrich_publications(records, config)
 
-    logger.info("FakeNewsNet : %d publications labellisées chargées", len(records))
+    logger.info("FakeNewsNet: %d labelled publications loaded", len(records))
     return records

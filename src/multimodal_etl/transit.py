@@ -1,17 +1,17 @@
-"""Zone de transit — passage de relais entre deux étapes du pipeline.
+"""Working area — the handoff between two pipeline steps.
 
-Airflow permet de relancer **n'importe quelle tâche d'un DAG indépendamment des
-autres**. Pour que ce soit vrai ici, aucune étape ne reçoit ses données de la
-précédente par la mémoire : chaque étape **écrit son résultat sur le disque**, dans
-``data/interim/``, et l'étape suivante **relit ce fichier**.
+Airflow lets you replay **any task of a DAG independently of the others**. For that to
+be true here, no step receives its data from the previous one through memory: every step
+**writes its result to disk**, under ``data/interim/``, and the next one **reads that
+file back**.
 
-Trois conséquences pratiques :
+Three practical consequences:
 
-* une tâche peut être rejouée seule, sans rejouer celles d'avant ;
-* si le fichier de transit a disparu, l'étape se rabat sur le dernier artefact
-  archivé (``data/raw/`` ou ``data/processed/``) : elle reste exécutable ;
-* une dernière tâche du DAG **vide la zone de transit** une fois les données
-  consommées, pour ne pas laisser traîner de fichiers temporaires.
+* a task can be replayed on its own, without replaying the ones before it;
+* if the working file is gone, the step falls back to the last archived artefact
+  (``data/raw/`` or ``data/processed/``): it stays runnable;
+* a final DAG task **empties the working area** once the data has been consumed, so no
+  temporary file is left lying around.
 """
 
 from __future__ import annotations
@@ -25,104 +25,107 @@ from multimodal_etl.logging_setup import get_logger
 
 logger = get_logger(__name__)
 
-# Noms des fichiers échangés entre les étapes. Ils sont fixes : c'est ce qui permet
-# à une tâche de retrouver l'entrée qui l'attend sans rien savoir de l'exécution
-# qui l'a produite.
+# Names of the files exchanged between steps. They are fixed: that is what lets a task
+# find the input waiting for it without knowing anything about the run that produced it.
 EXTRACTION = "extraction.json"
 DATASET = "dataset.parquet"
 
-# Mesures déposées par chaque étape et relues par l'étape « métriques ».
-MESURES = {
-    "extraction": "mesures_extraction.json",
-    "transformation": "mesures_transformation.json",
-    "chargement": "mesures_chargement.json",
+# Metrics dropped by each step and read back by the "metrics" step.
+METRICS_FILES = {
+    "extract": "metrics_extract.json",
+    "transform": "metrics_transform.json",
+    "load": "metrics_load.json",
 }
 
 
-def path_for(nom: str) -> Path:
-    """Renvoie le chemin d'un fichier de la zone de transit."""
-    return INTERIM_DIR / nom
+def path_for(name: str) -> Path:
+    """Return the path of a file in the working area."""
+    return INTERIM_DIR / name
 
 
-def _latest_artefact(dossier: Path, motif: str) -> Path | None:
-    """Renvoie le fichier le plus récent d'un dossier correspondant à un motif.
+def _latest_artefact(directory: Path, pattern: str) -> Path | None:
+    """Return the most recent file of a directory matching a pattern.
 
-    Le nom du fichier départage deux artefacts écrits dans la même seconde : tous
-    les noms produits par le pipeline portent un horodatage triable.
+    The file name breaks the tie between two artefacts written in the same second: every
+    name the pipeline produces carries a sortable timestamp.
     """
-    if not dossier.exists():
+    if not directory.exists():
         return None
-    fichiers = sorted(dossier.glob(motif), key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
-    return fichiers[0] if fichiers else None
+    files = sorted(directory.glob(pattern), key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+    return files[0] if files else None
 
 
-def stage(artefact: Path, nom: str) -> Path:
-    """Copie un artefact produit par une étape dans la zone de transit."""
+def stage(artefact: Path, name: str) -> Path:
+    """Copy an artefact produced by a step into the working area."""
     INTERIM_DIR.mkdir(parents=True, exist_ok=True)
-    destination = path_for(nom)
+    destination = path_for(name)
     shutil.copy2(artefact, destination)
-    logger.info("Transit : '%s' déposé pour l'étape suivante", nom)
+    logger.info("Working area: '%s' staged for the next step", name)
     return destination
 
 
-def write_metrics(etape: str, mesures: dict[str, object]) -> Path:
-    """Enregistre les mesures d'une étape (durée, volumes) dans la zone de transit."""
+def write_metrics(step: str, metrics: dict[str, object]) -> Path:
+    """Record the metrics of a step (duration, volumes) in the working area."""
     INTERIM_DIR.mkdir(parents=True, exist_ok=True)
-    destination = path_for(MESURES[etape])
+    destination = path_for(METRICS_FILES[step])
     destination.write_text(
-        json.dumps(mesures, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+        json.dumps(metrics, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
     )
     return destination
 
 
-def read_metrics(etape: str) -> dict[str, object]:
-    """Relit les mesures d'une étape, ou un dictionnaire clear si elles manquent."""
-    fichier = path_for(MESURES[etape])
-    if not fichier.exists():
-        logger.warning("Transit : mesures manquantes pour l'étape '%s'", etape)
+def read_metrics(step: str) -> dict[str, object]:
+    """Read back the metrics of a step, or an empty dict when they are missing."""
+    path = path_for(METRICS_FILES[step])
+    if not path.exists():
+        logger.warning("Working area: metrics missing for step '%s'", step)
         return {}
-    return json.loads(fichier.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def extraction_input() -> Path | None:
-    """Renvoie le fichier brut à transformer.
+    """Return the raw file to transform.
 
-    On privilégie le fichier déposé par la tâche d'extraction ; s'il est absent
-    (tâche rejouée seule, zone de transit déjà nettoyée), on reprend la dernière
-    extraction archivée.
+    The file staged by the extract task comes first; when it is absent — the task was
+    replayed on its own, or the working area has already been cleared — we fall back to
+    the last archived extraction.
     """
-    fichier = path_for(EXTRACTION)
-    if fichier.exists():
-        return fichier
+    path = path_for(EXTRACTION)
+    if path.exists():
+        return path
 
-    repli = _latest_artefact(RAW_DIR, "raw_publications_*.json")
-    if repli is not None:
-        logger.warning("Transit : '%s' absent, reprise de l'archive %s", EXTRACTION, repli.name)
-    return repli
+    fallback = _latest_artefact(RAW_DIR, "raw_publications_*.json")
+    if fallback is not None:
+        logger.warning(
+            "Working area: '%s' missing, falling back to archive %s", EXTRACTION, fallback.name
+        )
+    return fallback
 
 
 def dataset_input() -> Path | None:
-    """Renvoie le dataset transformé à charger, avec le même mécanisme de repli."""
-    fichier = path_for(DATASET)
-    if fichier.exists():
-        return fichier
+    """Return the transformed dataset to load, with the same fallback mechanism."""
+    path = path_for(DATASET)
+    if path.exists():
+        return path
 
-    repli = _latest_artefact(PROCESSED_DIR, "publications_*.parquet")
-    if repli is not None:
-        logger.warning("Transit : '%s' absent, reprise de l'archive %s", DATASET, repli.name)
-    return repli
+    fallback = _latest_artefact(PROCESSED_DIR, "publications_*.parquet")
+    if fallback is not None:
+        logger.warning(
+            "Working area: '%s' missing, falling back to archive %s", DATASET, fallback.name
+        )
+    return fallback
 
 
 def clear() -> list[str]:
-    """Supprime tous les fichiers de la zone de transit et renvoie leurs noms."""
+    """Delete every file of the working area and return their names."""
     if not INTERIM_DIR.exists():
         return []
 
-    supprimes = []
-    for fichier in sorted(INTERIM_DIR.iterdir()):
-        if fichier.is_file():
-            fichier.unlink()
-            supprimes.append(fichier.name)
+    removed = []
+    for path in sorted(INTERIM_DIR.iterdir()):
+        if path.is_file():
+            path.unlink()
+            removed.append(path.name)
 
-    logger.info("Transit : %d fichiers temporaires supprimés", len(supprimes))
-    return supprimes
+    logger.info("Working area: %d temporary files deleted", len(removed))
+    return removed

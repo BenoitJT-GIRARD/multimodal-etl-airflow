@@ -1,9 +1,9 @@
-"""Configuration centralisée du pipeline.
+"""Central configuration of the pipeline.
 
-Tous les chemins et les paramètres ajustables sont regroupés ici sous forme de
-dataclasses ``frozen`` (immuables). Les scripts, notebooks et le DAG Airflow
-importent ces objets plutôt que de coder en dur des constantes : c'est ce qui
-rend le pipeline **reproductible** et **paramétrable**
+Every path and every adjustable parameter lives here, as ``frozen`` (immutable)
+dataclasses. The scripts, the notebooks and the Airflow DAG import these objects rather
+than hard-coding constants: that is what makes the pipeline **reproducible** and
+**tunable**.
 """
 
 from __future__ import annotations
@@ -12,47 +12,46 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Racine du projet = deux niveaux au-dessus de ce fichier (src/multimodal_etl/config.py).
+# Project root = two levels above this file (src/multimodal_etl/config.py).
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
 
 DATA_DIR: Path = PROJECT_ROOT / "data"
 RAW_DIR: Path = DATA_DIR / "raw"
 IMAGES_DIR: Path = RAW_DIR / "images"
 PROCESSED_DIR: Path = DATA_DIR / "processed"
-# Une fiche par exécution du pipeline : c'est l'historique lu par le tableau de bord.
+# One record per pipeline run: this is the history the dashboard reads.
 RUNS_DIR: Path = PROCESSED_DIR / "runs"
 SAMPLES_DIR: Path = DATA_DIR / "samples"
 DB_DIR: Path = DATA_DIR / "db"
 LOGS_DIR: Path = PROJECT_ROOT / "logs"
 
-# Zone de transit : fichiers d'échange entre deux tâches Airflow. Voir transit.py.
+# Working area: files handed from one Airflow task to the next. See transit.py.
 INTERIM_DIR: Path = DATA_DIR / "interim"
 
 
-def relative_path(path_for: Path) -> str:
-    """Exprime un chemin par rapport à la racine du projet.
+def relative_path(path: Path) -> str:
+    """Express a path relative to the project root.
 
-    Les chemins stockés dans le jeu de données doivent rester valables ailleurs
-    que sur la machine qui les a produits : le pipeline tourne aussi bien en local
-    que dans le conteneur Airflow, où la racine du projet n'est pas au même
-    endroit. On enregistre donc ``data/raw/images/xxx.jpg`` et jamais un chemin
-    absolu.
+    Paths stored in the dataset have to stay valid somewhere other than the machine that
+    produced them: the pipeline runs locally as well as inside the Airflow container,
+    where the project root sits elsewhere. So we record ``data/raw/images/xxx.jpg`` and
+    never an absolute path.
     """
     try:
-        return path_for.resolve().relative_to(PROJECT_ROOT).as_posix()
+        return path.resolve().relative_to(PROJECT_ROOT).as_posix()
     except ValueError:
-        # Chemin hors du projet : on le garde tel quel plutôt que de le perdre.
-        return path_for.as_posix()
+        # Path outside the project: keep it as it is rather than lose it.
+        return path.as_posix()
 
 
-def absolute_path(path_for: str) -> Path:
-    """Retrouve le fichier réel à partir d'un chemin relatif au projet."""
-    candidat = Path(path_for)
-    return candidat if candidat.is_absolute() else PROJECT_ROOT / candidat
+def absolute_path(path: str) -> Path:
+    """Find the real file back from a project-relative path."""
+    candidate = Path(path)
+    return candidate if candidate.is_absolute() else PROJECT_ROOT / candidate
 
 
 def _env_int(name: str, default: int) -> int:
-    """Lit une variable d'environnement entière, avec valeur de repli."""
+    """Read an integer environment variable, falling back to a default."""
     raw = os.environ.get(name)
     if raw is None or raw.strip() == "":
         return default
@@ -64,30 +63,28 @@ def _env_int(name: str, default: int) -> int:
 
 @dataclass(frozen=True)
 class ExtractionConfig:
-    """Paramètres de l'étape d'extraction (E)."""
+    """Parameters of the extract step (E)."""
 
-    # Nombre maximum d'éléments collectés par source (garde-fou contre les quotas API).
+    # Largest number of items collected per source (a guard against API quotas).
     max_items_per_source: int = field(
         default_factory=lambda: _env_int("MULTIMODAL_ETL_MAX_ITEMS_PER_SOURCE", 50)
     )
-    # Délai d'attente (secondes) pour chaque requête réseau.
+    # Timeout, in seconds, for every network request.
     request_timeout: int = field(
         default_factory=lambda: _env_int("MULTIMODAL_ETL_REQUEST_TIMEOUT", 15)
     )
-    # En-tête User-Agent : politesse minimale vis-à-vis des serveurs interrogés.
-    user_agent: str = (
-        "Multimodal ETL-bot/0.1 (+https://github.com/multimodal_etl)"
-    )
-    # Flux RSS multimodaux (titre + résumé + image) — sources officielles, sans clé.
+    # User-Agent header: the minimum courtesy owed to the servers being queried.
+    user_agent: str = "Multimodal ETL-bot/0.1 (+https://github.com/multimodal_etl)"
+    # Multimodal RSS feeds (title + summary + image) — official sources, no key needed.
     rss_feeds: tuple[tuple[str, str], ...] = (
         ("the_guardian", "https://www.theguardian.com/world/rss"),
         ("bbc_news", "https://feeds.bbci.co.uk/news/world/rss.xml"),
         ("abc_news", "https://abcnews.go.com/abcnews/internationalheadlines"),
     )
-    # Paramètres de l'API NewsData.io (source activée si une clé est fournie).
+    # NewsData.io API settings (the source turns on when a key is supplied).
     newsdata_endpoint: str = "https://newsdata.io/api/1/news"
     newsdata_language: str = "en"
-    # FakeNewsNet : CSV labellisés publiés sur le dépôt GitHub officiel.
+    # FakeNewsNet: labelled CSVs published on the official GitHub repository.
     fakenewsnet_base_url: str = (
         "https://raw.githubusercontent.com/KaiDMML/FakeNewsNet/master/dataset"
     )
@@ -97,67 +94,66 @@ class ExtractionConfig:
         "gossipcop_fake.csv",
         "gossipcop_real.csv",
     )
-    # Ces CSV ne contiennent pas d'image : on va la chercher dans les métadonnées
-    # Open Graph de l'article. L'opération coûte une requête HTTP par publication,
-    # on la plafonne donc pour garder un run court.
-    max_enrichissements_open_graph: int = field(
+    # Those CSVs carry no image, so we go and fetch one from the article's Open Graph
+    # metadata. That costs one HTTP request per publication, hence the cap: it keeps a
+    # run short.
+    max_open_graph_enrichments: int = field(
         default_factory=lambda: _env_int("MULTIMODAL_ETL_MAX_OPEN_GRAPH", 40)
     )
 
 
 @dataclass(frozen=True)
 class ImageConfig:
-    """Paramètres du téléchargement des images (volet « vision » du multimodal)."""
+    """Parameters of the image download (the "vision" half of the multimodal data)."""
 
-    # Nombre maximum d'images téléchargées par exécution (maîtrise du temps et du disque).
-    # Le plafond doit rester au-dessus du volume collecté (environ 180 publications avec
-    # les réglages par défaut) : sinon les dernières sources traitées n'obtiennent aucune
-    # image et disparaissent du jeu de données.
+    # Largest number of images downloaded per run (keeps time and disk under control).
+    # The cap has to stay above the collected volume — roughly 180 publications with the
+    # default settings — otherwise the sources processed last get no image at all and
+    # drop out of the dataset.
     max_images: int = field(default_factory=lambda: _env_int("MULTIMODAL_ETL_MAX_IMAGES", 250))
-    # Délai d'attente (secondes) d'un téléchargement d'image.
+    # Timeout, in seconds, of a single image download.
     request_timeout: int = field(
         default_factory=lambda: _env_int("MULTIMODAL_ETL_REQUEST_TIMEOUT", 15)
     )
-    # Taille maximale acceptée pour un fichier image (Mo).
-    taille_max_mo: float = 5.0
-    # Types MIME acceptés (contrôle avant écriture sur disque).
-    types_mime_acceptes: tuple[str, ...] = ("image/jpeg", "image/png", "image/webp", "image/gif")
-    user_agent: str = (
-        "Multimodal ETL-bot/0.1 (+https://github.com/multimodal_etl)"
-    )
+    # Largest accepted size for an image file, in megabytes.
+    max_size_mb: float = 5.0
+    # Accepted MIME types (checked before anything is written to disk).
+    accepted_mime_types: tuple[str, ...] = ("image/jpeg", "image/png", "image/webp", "image/gif")
+    user_agent: str = "Multimodal ETL-bot/0.1 (+https://github.com/multimodal_etl)"
 
 
 @dataclass(frozen=True)
 class TransformConfig:
-    """Paramètres de l'étape de transformation (T)."""
+    """Parameters of the transform step (T)."""
 
-    # Longueur minimale de texte (caractères) pour qu'une publication soit exploitable.
+    # Shortest text, in characters, for a publication to be usable.
     min_text_length: int = 30
-    # Si True, une publication sans image téléchargée est écartée (multimodal strict).
+    # When True, a publication with no downloaded image is dropped (strict multimodal).
     require_image: bool = True
-    # Format d'export du dataset transformé.
-    output_format: str = "parquet"  # "parquet" ou "csv"
+    # Export format of the transformed dataset.
+    output_format: str = "parquet"  # "parquet" or "csv"
 
 
 @dataclass(frozen=True)
 class LoadConfig:
-    """Paramètres de l'étape de chargement (L)."""
+    """Parameters of the load step (L)."""
 
-    # URL SQLAlchemy de la base cible. Vide -> SQLite local (data/db/multimodal_etl.db).
+    # SQLAlchemy URL of the target database. Empty -> local SQLite
+    # (data/db/multimodal_etl.db).
     db_url: str = field(default_factory=lambda: os.environ.get("MULTIMODAL_ETL_DB_URL", "").strip())
-    # Table « à plat », prête pour l'entraînement du modèle.
+    # The flat table, ready for model training.
     table_name: str = "publications"
 
     @property
     def resolved_url(self) -> str:
-        """Renvoie l'URL de connexion effective (SQLite local par défaut)."""
+        """Return the connection URL actually in use (local SQLite by default)."""
         if self.db_url:
             return self.db_url
         return f"sqlite:///{(DB_DIR / 'multimodal_etl.db').as_posix()}"
 
 
 def ensure_dirs() -> None:
-    """Crée les répertoires de travail s'ils n'existent pas encore."""
+    """Create the working directories if they do not exist yet."""
     for directory in (
         RAW_DIR,
         IMAGES_DIR,

@@ -75,26 +75,26 @@ def test_dataset_input_falls_back_to_the_last_archive(tmp_path: Path, monkeypatc
 
 def test_metrics_round_trip(tmp_path: Path, monkeypatch) -> None:
     _prepare(tmp_path, monkeypatch)
-    transit.write_metrics("extraction", {"duree_sec": 1.5, "publications_extraites": 10})
+    transit.write_metrics("extract", {"duree_sec": 1.5, "publications_extraites": 10})
 
-    mesures = transit.read_metrics("extraction")
+    mesures = transit.read_metrics("extract")
 
     assert mesures["publications_extraites"] == 10
 
 
 def test_read_metrics_returns_an_empty_dict_when_absent(tmp_path: Path, monkeypatch) -> None:
     _prepare(tmp_path, monkeypatch)
-    assert transit.read_metrics("chargement") == {}
+    assert transit.read_metrics("load") == {}
 
 
 def test_clear_deletes_every_temporary_file(tmp_path: Path, monkeypatch) -> None:
     interim, _, _ = _prepare(tmp_path, monkeypatch)
     (interim / transit.EXTRACTION).write_text("[]", encoding="utf-8")
-    transit.write_metrics("extraction", {"duree_sec": 1.0})
+    transit.write_metrics("extract", {"duree_sec": 1.0})
 
     supprimes = transit.clear()
 
-    assert sorted(supprimes) == sorted([transit.EXTRACTION, transit.MESURES["extraction"]])
+    assert sorted(supprimes) == sorted([transit.EXTRACTION, transit.METRICS_FILES["extract"]])
     assert list(interim.iterdir()) == []
 
 
