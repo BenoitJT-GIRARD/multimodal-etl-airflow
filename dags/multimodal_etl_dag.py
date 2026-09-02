@@ -1,21 +1,19 @@
-"""DAG Airflow — orchestration du pipeline ETL Multimodal ETL.
+"""Airflow DAG orchestrating the multimodal ETL pipeline.
 
-Le DAG automatise le flux **Extract → Transform → Load**, puis consolide les
-métriques et fait le ménage. Il **reprend directement les fonctions** du package
-``multimodal_etl`` : chaque ``PythonOperator`` appelle une étape de
-:mod:`multimodal_etl.pipeline`, sans logique métier écrite ici.
+The DAG runs Extract, Transform and Load, then consolidates the run metrics and clears
+the working area. It **calls the package directly**: every ``PythonOperator`` invokes one
+step of :mod:`multimodal_etl.pipeline`, and no business logic is written here.
 
-**Les tâches sont indépendantes.** Aucune donnée ne transite par XCom : chaque
-étape écrit son résultat dans ``data/interim/`` et l'étape suivante relit ce
-fichier. On peut donc rejouer n'importe quelle tâche seule ::
+**The tasks are independent.** Nothing travels through XCom: each step writes its result
+to ``data/interim/`` and the next one reads that file back. Any single task can therefore
+be replayed on its own ::
 
-    airflow tasks test multimodal_etl transformation 2026-08-20
+    airflow tasks test multimodal_etl transform 2026-08-20
 
-Si le fichier de transit n'existe plus, l'étape reprend le dernier artefact
-archivé. La tâche finale ``nettoyage`` vide la zone de transit une fois les
-fichiers consommés.
+If the working file is gone, the step falls back to the last archived artefact. The final
+``cleanup`` task empties the working area once its files have been consumed.
 
-Exécution locale : voir ``docs/runbook_airflow.md``.
+Running it locally: see ``docs/runbook_airflow.md``.
 """
 
 from __future__ import annotations
@@ -26,13 +24,13 @@ from pathlib import Path
 
 from airflow import DAG
 
-# PythonOperator : le chemin d'import a changé entre Airflow 2.x et 3.x.
+# The import path for PythonOperator moved between Airflow 2.x and 3.x.
 try:
     from airflow.operators.python import PythonOperator
 except ImportError:  # pragma: no cover - Airflow 3.x
     from airflow.providers.standard.operators.python import PythonOperator
 
-# Rend le package multimodal_etl importable depuis le conteneur (src monté par Docker).
+# Make the package importable from inside the container, where Docker mounts src.
 PROJECT_SRC = Path("/opt/airflow/project/src")
 if PROJECT_SRC.exists() and str(PROJECT_SRC) not in sys.path:
     sys.path.insert(0, str(PROJECT_SRC))
@@ -47,7 +45,7 @@ from multimodal_etl.pipeline import (
 
 
 def task_metrics() -> dict:
-    """Consolide les mesures en précisant que l'exécution vient d'Airflow."""
+    """Consolidate the run metrics, recording that the run came from Airflow."""
     return run_metrics(orchestrateur="airflow")
 
 
@@ -59,37 +57,37 @@ default_args = {
 
 with DAG(
     dag_id="multimodal_etl",
-    description="Extraction, transformation et chargement de données multimodales (fake news).",
+    description="Extract, transform and load multimodal publications for misinformation research.",
     default_args=default_args,
     start_date=datetime(2026, 1, 1),
-    schedule="@daily",  # planification quotidienne pour garder le dataset frais
+    schedule="@daily",  # daily, to keep the dataset fresh
     catchup=False,
-    tags=["multimodal_etl", "etl", "multimodal", "fake-news"],
+    tags=["multimodal_etl", "etl", "multimodal", "misinformation"],
 ) as dag:
-    extraction = PythonOperator(
-        task_id="extraction",
+    extract = PythonOperator(
+        task_id="extract",
         python_callable=run_extract,
-        doc_md="Collecte les publications des 4 sources et télécharge leurs images.",
+        doc_md="Collect publications from the four sources and download their images.",
     )
-    transformation = PythonOperator(
-        task_id="transformation",
+    transform = PythonOperator(
+        task_id="transform",
         python_callable=run_transform,
-        doc_md="Nettoie, valide et normalise les publications en un dataset propre.",
+        doc_md="Clean, validate and normalise the publications into a tidy dataset.",
     )
-    chargement = PythonOperator(
-        task_id="chargement",
+    load = PythonOperator(
+        task_id="load",
         python_callable=run_load,
-        doc_md="Charge les nouvelles publications dans la base relationnelle.",
+        doc_md="Insert the publications that are not already in the relational database.",
     )
-    metriques = PythonOperator(
-        task_id="metriques",
+    metrics = PythonOperator(
+        task_id="metrics",
         python_callable=task_metrics,
-        doc_md="Consolide durées et volumes en une fiche d'exécution pour les KPI.",
+        doc_md="Consolidate durations and volumes into one run record for the KPI board.",
     )
-    nettoyage = PythonOperator(
-        task_id="nettoyage",
+    cleanup = PythonOperator(
+        task_id="cleanup",
         python_callable=run_cleanup,
-        doc_md="Vide la zone de transit une fois les fichiers temporaires consommés.",
+        doc_md="Empty the working area once its temporary files have been consumed.",
     )
 
-    extraction >> transformation >> chargement >> metriques >> nettoyage
+    extract >> transform >> load >> metrics >> cleanup
