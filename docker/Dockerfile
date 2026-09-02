@@ -1,4 +1,4 @@
-# Image Airflow enrichie des dependances du pipeline.
+# Image Airflow enrichie des dependances du pipeline Multimodal ETL.
 #
 # La documentation Airflow deconseille d'installer des paquets au demarrage du
 # conteneur (variable _PIP_ADDITIONAL_REQUIREMENTS) : l'installation est refaite a

@@ -14,7 +14,7 @@ la couche d'orchestration, de planification et de reprise.
   situé sur un lecteur virtuel de synchronisation (Google Drive, OneDrive) : les montages
   sont créés vides, sans erreur, et le DAG n'est jamais découvert. Si le projet est
   stocké sur un tel lecteur, en copier ou en cloner une version dans un dossier local
-  (`C:\dev\multimodal-etl`, par exemple) et lancer Airflow depuis cette copie.
+  (`C:\dev\multimodal_etl`, par exemple) et lancer Airflow depuis cette copie.
 
 ## 2. Préparer la configuration
 

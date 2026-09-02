@@ -1,7 +1,7 @@
 [project]
 name = "multimodal_etl"
 version = "0.1.0"
-description = "Pipeline ETL d'extraction de données multimodales (texte + image) pour l'entraînement d'un détecteur de fake news."
+description = "Multimodal ETL — pipeline ETL d'extraction de données multimodales (texte + image) pour l'entraînement d'un détecteur de fake news."
 readme = "README.md"
 authors = [{ name = "Benoît J. T. GIRARD", email = "53222414+BenoitJT-GIRARD@users.noreply.github.com" }]
 requires-python = ">=3.12,<3.13"

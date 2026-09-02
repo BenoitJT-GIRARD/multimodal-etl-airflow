@@ -1,6 +1,7 @@
-# Extraction de données multimodales pour la détection de fake news
+# Multimodal ETL — extraction de données multimodales pour la détection de fake news
 
-Objectif : construire un **pipeline ETL automatisé** qui récupère des
+Ingénieur data junior chez **Multimodal ETL**, start-up qui développe des outils de détection
+de désinformation. Objectif : construire un **pipeline ETL automatisé** qui récupère des
 publications **multimodales (texte + image)** depuis plusieurs sources, les transforme en
 un jeu de données propre et structuré, puis les charge dans une base — le tout orchestré
 par **Apache Airflow** et suivi par un **tableau de bord KPI**.
@@ -24,7 +25,7 @@ Pillow, et une publication sans image n'entre pas dans le jeu de données.
 ## Structure
 
 ```
-multimodal-etl-airflow/
+multimodal_etl/
 ├── src/multimodal_etl/          # le pipeline
 │   ├── config.py           # chemins et paramètres (dataclasses immuables)
 │   ├── logging_setup.py    # journalisation centralisée

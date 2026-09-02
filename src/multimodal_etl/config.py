@@ -71,9 +71,13 @@ class ExtractionConfig:
         default_factory=lambda: _env_int("MULTIMODAL_ETL_MAX_ITEMS_PER_SOURCE", 50)
     )
     # Délai d'attente (secondes) pour chaque requête réseau.
-    request_timeout: int = field(default_factory=lambda: _env_int("MULTIMODAL_ETL_REQUEST_TIMEOUT", 15))
+    request_timeout: int = field(
+        default_factory=lambda: _env_int("MULTIMODAL_ETL_REQUEST_TIMEOUT", 15)
+    )
     # En-tête User-Agent : politesse minimale vis-à-vis des serveurs interrogés.
-    user_agent: str = "Multimodal ETL-bot/0.1 (+https://github.com/multimodal_etl)"
+    user_agent: str = (
+        "Multimodal ETL-bot/0.1 (+https://github.com/multimodal_etl)"
+    )
     # Flux RSS multimodaux (titre + résumé + image) — sources officielles, sans clé.
     rss_feeds: tuple[tuple[str, str], ...] = (
         ("the_guardian", "https://www.theguardian.com/world/rss"),
@@ -111,12 +115,16 @@ class ImageConfig:
     # image et disparaissent du jeu de données.
     max_images: int = field(default_factory=lambda: _env_int("MULTIMODAL_ETL_MAX_IMAGES", 250))
     # Délai d'attente (secondes) d'un téléchargement d'image.
-    request_timeout: int = field(default_factory=lambda: _env_int("MULTIMODAL_ETL_REQUEST_TIMEOUT", 15))
+    request_timeout: int = field(
+        default_factory=lambda: _env_int("MULTIMODAL_ETL_REQUEST_TIMEOUT", 15)
+    )
     # Taille maximale acceptée pour un fichier image (Mo).
     taille_max_mo: float = 5.0
     # Types MIME acceptés (contrôle avant écriture sur disque).
     types_mime_acceptes: tuple[str, ...] = ("image/jpeg", "image/png", "image/webp", "image/gif")
-    user_agent: str = "Multimodal ETL-bot/0.1 (+https://github.com/multimodal_etl)"
+    user_agent: str = (
+        "Multimodal ETL-bot/0.1 (+https://github.com/multimodal_etl)"
+    )
 
 
 @dataclass(frozen=True)

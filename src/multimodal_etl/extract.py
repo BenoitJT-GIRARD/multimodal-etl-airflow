@@ -66,7 +66,7 @@ def collecte_sources(config: ExtractionConfig | None = None) -> tuple[list[dict]
     return publications, bilan
 
 
-def sources_en_echec(bilan: dict[str, int]) -> int:
+def failed_sources(bilan: dict[str, int]) -> int:
     """Compte les sources réellement en panne, pour l'alerte du plan de monitoring.
 
     Une source volontairement **désactivée** n'est pas une panne : NewsData.io ne
@@ -108,7 +108,7 @@ def run_extraction(config: ExtractionConfig | None = None) -> tuple[Path, dict[s
     compte_rendu: dict[str, object] = {
         "publications_extraites": len(publications),
         "bilan_sources": bilan,
-        "sources_en_echec": sources_en_echec(bilan),
+        "failed_sources": failed_sources(bilan),
         "images": compteurs_images,
         "fichier_brut": str(chemin),
     }

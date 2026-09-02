@@ -96,3 +96,30 @@ def test_vide_supprime_tous_les_fichiers_temporaires(tmp_path: Path, monkeypatch
 
     assert sorted(supprimes) == sorted([transit.EXTRACTION, transit.MESURES["extraction"]])
     assert list(interim.iterdir()) == []
+
+
+def test_pipeline_load_step_delegates_to_the_loader():
+    """Regression: pipeline.run_load used to shadow the loader it imported.
+
+    `pipeline` imported `load.etape_chargement` and then defined a function of the same
+    name, so the inner call resolved to the pipeline function itself and raised
+    ``TypeError: takes from 0 to 1 positional arguments but 2 were given``. The third
+    task of the Airflow DAG could not run, and no test covered this path.
+    """
+    from pathlib import Path
+    from unittest.mock import patch
+
+    from multimodal_etl import pipeline
+
+    dataset = Path("data/processed/anything.parquet")
+    with (
+        patch.object(pipeline.transit, "entree_dataset", return_value=dataset),
+        patch.object(pipeline.transit, "ecris_mesures"),
+        patch.object(pipeline, "compte_publications", return_value=7),
+        patch.object(pipeline, "load_dataset", return_value={"publications": 3}) as loader,
+    ):
+        mesures = pipeline.run_load()
+
+    loader.assert_called_once()
+    assert loader.call_args.args[0] == dataset
+    assert mesures["publications_en_base"] == 7

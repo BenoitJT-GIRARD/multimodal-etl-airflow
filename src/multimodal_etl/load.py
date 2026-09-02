@@ -176,7 +176,7 @@ def compte_publications(config: LoadConfig | None = None) -> int:
         engine.dispose()
 
 
-def run_load(dataset_path: Path, config: LoadConfig | None = None) -> dict[str, int]:
+def load_dataset(dataset_path: Path, config: LoadConfig | None = None) -> dict[str, int]:
     """Pipeline de chargement complet : lecture du dataset puis écriture en base."""
     df = lit_dataset(dataset_path)
     return charge_en_base(df, config)

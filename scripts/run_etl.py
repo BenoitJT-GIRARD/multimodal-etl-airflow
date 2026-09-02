@@ -23,11 +23,11 @@ load_dotenv(ROOT / ".env")
 
 from multimodal_etl.logging_setup import get_logger, setup_logging
 from multimodal_etl.pipeline import (
-    etape_chargement,
-    etape_extraction,
-    etape_metriques,
-    etape_nettoyage,
-    etape_transformation,
+    run_cleanup,
+    run_extract,
+    run_load,
+    run_metrics,
+    run_transform,
 )
 
 logger = get_logger("multimodal_etl.etl")
@@ -37,11 +37,11 @@ def main() -> None:
     """Exécute l'ETL de bout en bout et affiche le bilan de l'exécution."""
     setup_logging()
 
-    etape_extraction()
-    etape_transformation()
-    etape_chargement()
-    run = etape_metriques(orchestrateur="script")
-    etape_nettoyage()
+    run_extract()
+    run_transform()
+    run_load()
+    run = run_metrics(orchestrateur="script")
+    run_cleanup()
 
     duree = sum(run["durations_sec"].values())
     logger.info("ETL terminé : %d nouvelles publications en %.2fs", run["rows_loaded"], duree)

@@ -1,4 +1,4 @@
-"""DAG Airflow — orchestration du pipeline ETL.
+"""DAG Airflow — orchestration du pipeline ETL Multimodal ETL.
 
 Le DAG automatise le flux **Extract → Transform → Load**, puis consolide les
 métriques et fait le ménage. Il **reprend directement les fonctions** du package
@@ -38,17 +38,17 @@ if PROJECT_SRC.exists() and str(PROJECT_SRC) not in sys.path:
     sys.path.insert(0, str(PROJECT_SRC))
 
 from multimodal_etl.pipeline import (
-    etape_chargement,
-    etape_extraction,
-    etape_metriques,
-    etape_nettoyage,
-    etape_transformation,
+    run_cleanup,
+    run_extract,
+    run_load,
+    run_metrics,
+    run_transform,
 )
 
 
-def tache_metriques() -> dict:
+def task_metrics() -> dict:
     """Consolide les mesures en précisant que l'exécution vient d'Airflow."""
-    return etape_metriques(orchestrateur="airflow")
+    return run_metrics(orchestrateur="airflow")
 
 
 default_args = {
@@ -68,27 +68,27 @@ with DAG(
 ) as dag:
     extraction = PythonOperator(
         task_id="extraction",
-        python_callable=etape_extraction,
+        python_callable=run_extract,
         doc_md="Collecte les publications des 4 sources et télécharge leurs images.",
     )
     transformation = PythonOperator(
         task_id="transformation",
-        python_callable=etape_transformation,
+        python_callable=run_transform,
         doc_md="Nettoie, valide et normalise les publications en un dataset propre.",
     )
     chargement = PythonOperator(
         task_id="chargement",
-        python_callable=etape_chargement,
+        python_callable=run_load,
         doc_md="Charge les nouvelles publications dans la base relationnelle.",
     )
     metriques = PythonOperator(
         task_id="metriques",
-        python_callable=tache_metriques,
+        python_callable=task_metrics,
         doc_md="Consolide durées et volumes en une fiche d'exécution pour les KPI.",
     )
     nettoyage = PythonOperator(
         task_id="nettoyage",
-        python_callable=etape_nettoyage,
+        python_callable=run_cleanup,
         doc_md="Vide la zone de transit une fois les fichiers temporaires consommés.",
     )
 

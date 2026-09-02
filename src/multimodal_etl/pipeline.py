@@ -14,7 +14,7 @@ indépendantes les unes des autres :
 3. elle dépose une copie de travail dans la zone de transit pour l'étape suivante ;
 4. elle mesure sa durée et écrit son compte rendu.
 
-La dernière étape, :func:`etape_nettoyage`, vide la zone de transit une fois les
+La dernière étape, :func:`run_cleanup`, vide la zone de transit une fois les
 fichiers consommés.
 """
 
@@ -33,7 +33,7 @@ from multimodal_etl.config import (
     ensure_dirs,
 )
 from multimodal_etl.extract import run_extraction
-from multimodal_etl.load import compte_publications, run_load
+from multimodal_etl.load import compte_publications, load_dataset
 from multimodal_etl.logging_setup import get_logger
 from multimodal_etl.sources import newsdata
 from multimodal_etl.transform import run_transformation
@@ -49,7 +49,7 @@ def _maintenant() -> str:
 # --------------------------------------------------------------------------- #
 # Étape 1 — extraction
 # --------------------------------------------------------------------------- #
-def etape_extraction(config: ExtractionConfig | None = None) -> dict[str, object]:
+def run_extract(config: ExtractionConfig | None = None) -> dict[str, object]:
     """Collecte les publications de toutes les sources et télécharge leurs images."""
     logger.info("=== ÉTAPE 1 — EXTRACTION ===")
     ensure_dirs()
@@ -73,7 +73,7 @@ def etape_extraction(config: ExtractionConfig | None = None) -> dict[str, object
 # --------------------------------------------------------------------------- #
 # Étape 2 — transformation
 # --------------------------------------------------------------------------- #
-def etape_transformation(config: TransformConfig | None = None) -> dict[str, object]:
+def run_transform(config: TransformConfig | None = None) -> dict[str, object]:
     """Nettoie, valide et normalise les publications brutes en un dataset propre."""
     logger.info("=== ÉTAPE 2 — TRANSFORMATION ===")
     ensure_dirs()
@@ -101,7 +101,7 @@ def etape_transformation(config: TransformConfig | None = None) -> dict[str, obj
 # --------------------------------------------------------------------------- #
 # Étape 3 — chargement
 # --------------------------------------------------------------------------- #
-def etape_chargement(config: LoadConfig | None = None) -> dict[str, object]:
+def run_load(config: LoadConfig | None = None) -> dict[str, object]:
     """Charge le dataset dans la base relationnelle, en n'ajoutant que les nouveautés."""
     logger.info("=== ÉTAPE 3 — CHARGEMENT ===")
     config = config or LoadConfig()
@@ -112,7 +112,7 @@ def etape_chargement(config: LoadConfig | None = None) -> dict[str, object]:
         )
 
     debut = time.perf_counter()
-    bilan = run_load(entree, config)
+    bilan = load_dataset(entree, config)
 
     mesures = {
         "horodatage": _maintenant(),
@@ -129,7 +129,7 @@ def etape_chargement(config: LoadConfig | None = None) -> dict[str, object]:
 # --------------------------------------------------------------------------- #
 # Étape 4 — métriques d'exécution
 # --------------------------------------------------------------------------- #
-def etape_metriques(orchestrateur: str = "script") -> dict[str, object]:
+def run_metrics(orchestrateur: str = "script") -> dict[str, object]:
     """Consolide les mesures des trois étapes en une fiche d'exécution.
 
     Cette fiche est le seul historique dont le tableau de bord a besoin : une par
@@ -154,7 +154,7 @@ def etape_metriques(orchestrateur: str = "script") -> dict[str, object]:
         "rows_in_db": chargement.get("publications_en_base", 0),
         "api_calls": extraction.get("appels_api", 0),
         "bilan_sources": extraction.get("bilan_sources", {}),
-        "sources_en_echec": extraction.get("sources_en_echec", 0),
+        "failed_sources": extraction.get("failed_sources", 0),
         "images": images,
         "stats": transformation.get("stats", {}),
         "dataset_path": transformation.get("archive", ""),
@@ -172,7 +172,7 @@ def etape_metriques(orchestrateur: str = "script") -> dict[str, object]:
 # --------------------------------------------------------------------------- #
 # Étape 5 — nettoyage de la zone de transit
 # --------------------------------------------------------------------------- #
-def etape_nettoyage() -> dict[str, object]:
+def run_cleanup() -> dict[str, object]:
     """Supprime les fichiers temporaires une fois qu'ils ont tous été consommés."""
     logger.info("=== ÉTAPE 5 — NETTOYAGE ===")
     supprimes = transit.vide()

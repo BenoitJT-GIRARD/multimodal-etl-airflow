@@ -1,4 +1,4 @@
-# Dependances d'execution du pipeline, installees dans l'image Airflow.
+# Dependances d'execution du pipeline Multimodal ETL, installees dans l'image Airflow.
 #
 # Volontairement sans numeros de version : les versions sont imposees par le
 # fichier de contraintes officiel d'Airflow (cf. Dockerfile). Sans lui, pip

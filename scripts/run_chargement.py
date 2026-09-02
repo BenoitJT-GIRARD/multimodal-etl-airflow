@@ -21,14 +21,14 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 
 from multimodal_etl.logging_setup import setup_logging
-from multimodal_etl.pipeline import etape_chargement
+from multimodal_etl.pipeline import run_load
 
 
 def main() -> None:
     """Charge le dataset en base et affiche le bilan par table."""
     setup_logging()
     try:
-        mesures = etape_chargement()
+        mesures = run_load()
     except FileNotFoundError as erreur:
         print(f"[erreur] {erreur}")
         sys.exit(1)

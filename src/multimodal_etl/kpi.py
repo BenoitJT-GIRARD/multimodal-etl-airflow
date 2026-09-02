@@ -97,7 +97,7 @@ SEUILS: dict[str, Seuil] = {
         300,
         "Au-delà, la fenêtre d'exécution quotidienne finit par être dépassée.",
     ),
-    "sources_en_echec": Seuil(
+    "failed_sources": Seuil(
         "Sources en échec",
         "bas",
         0,
@@ -213,7 +213,7 @@ def kpis_performance(run: dict[str, object]) -> dict[str, float]:
         "taux_nouveaute_pct": _pourcentage(lignes, extraites),
         "publications_ajoutees": lignes,
         "publications_en_base": int(run.get("rows_in_db", 0)) if run else 0,
-        "sources_en_echec": int(run.get("sources_en_echec", 0)) if run else 0,
+        "failed_sources": int(run.get("failed_sources", 0)) if run else 0,
     }
 
 
@@ -344,7 +344,7 @@ def historique_runs() -> pd.DataFrame:
                 "taux_validite_pct": _pourcentage(
                     stats.get("total_valide", 0), stats.get("total_brut", 0)
                 ),
-                "sources_en_echec": run.get("sources_en_echec", 0),
+                "failed_sources": run.get("failed_sources", 0),
             }
         )
 
