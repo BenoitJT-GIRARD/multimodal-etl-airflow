@@ -55,7 +55,7 @@ data/db/
 *.log
 logs/
 
-# --- Reports : on ne garde que les rapports finaux ---
+# --- Reports: only the generated reports are kept ---
 reports/*.zip
 
 # --- Airflow (runtime Docker) ---
