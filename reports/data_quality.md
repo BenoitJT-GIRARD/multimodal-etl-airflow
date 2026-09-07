@@ -30,13 +30,13 @@ What each source contributes, not merely how much.
 |---|---|---|---|---|
 | rss:the_guardian | 45 | 45 | 0 | 602 |
 | fakeddit | 24 | 24 | 24 | 54 |
-| rss:abc_news | 24 | 24 | 0 | 131 |
+| rss:abc_news | 24 | 24 | 0 | 132 |
 | rss:bbc_news | 22 | 22 | 0 | 120 |
 | fakenewsnet:gossipcop | 8 | 8 | 8 | 57 |
 
 ### What the labelled subset really looks like
 
-The 32 labelled publications average **54.9 characters** of text, against 361.3 for the unlabelled ones. The labels come from FakeNewsNet and Fakeddit, which publish a headline and no article body: the only rows usable for supervised training are also the textually poorest. A model trained on this dataset would be learning from headlines.
+The 32 labelled publications average **54.9 characters** of text, against 361.5 for the unlabelled ones. The labels come from FakeNewsNet and Fakeddit, which publish a headline and no article body: the only rows usable for supervised training are also the textually poorest. A model trained on this dataset would be learning from headlines.
 
 ## Duplicates
 

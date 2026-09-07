@@ -12,16 +12,16 @@ image, so every image is downloaded and opened by Pillow before the publication 
 ## Project status
 
 **Deliberately finished.** This is a lab project: it was built to work end to end, it was
-then audited, and the defects the audit found were fixed. It is not maintained beyond
-that, and its CI does not run on a schedule.
+then audited, the defects the audit found were fixed, and the promises it made were
+measured. It is not maintained beyond that, and its CI does not run on a schedule.
 
 What that means concretely:
 
 - the pipeline runs today, against live sources, with one command;
 - the figures below come from a real run and are dated, because the sources are live news
   feeds — the same command tomorrow returns different numbers, and that is the point;
-- three architectural promises are **not yet proven**, and are listed under *What this does
-  not prove*. The design and plan for proving them are written but not executed.
+- what the pipeline claims is now either **proven** or **listed as unproven**. Both lists
+  are below.
 
 ## What one run does
 
@@ -42,28 +42,53 @@ Graph metadata. Publications without a usable image are dropped at the transform
 | | |
 |---|---|
 | Publications collected | 164 (RSS 92, FakeNewsNet 48, Fakeddit 24) |
-| Kept after cleaning | 122 — the 42 dropped had no usable image |
+| Kept after cleaning | 123 — the 41 dropped had no usable image |
 | Text-image pairing | 100% |
-| Images obtained | 124 of 129 attempted |
+| Images obtained | 96.9% of those attempted |
 | of which recovered from Open Graph | 8 |
-| Labelled with ground truth | 31 |
-| Total duration | 56.9 s |
+| Labelled with ground truth | 32 (26%) |
+| Total duration | 56.8 s |
 
-**The load is incremental.** Running it twice in a row, back to back:
+## What is proven
 
-| Run | Collected | New in database | Total in database |
+**The load cannot duplicate a row.** Every table is declared with its primary key and the
+insert skips conflicts, so idempotency is a property of the **schema** rather than of the
+code that happens to run first. Running the pipeline twice back to back:
+
+| Run | Collected | Written | Total in database |
 |---|---|---|---|
-| first | 164 | 112 | 112 |
-| second | 164 | **12** | 124 |
+| first | 164 | 123 | 123 |
+| second | 164 | **0** | 123 |
 
-The second run collected the same 164 publications and wrote 12 — the articles the feeds
-had published in between. Nothing was duplicated.
+A test proves the constraint holds even against a writer that bypasses the loader entirely
+and issues its own `INSERT`. An earlier version read the existing keys and then wrote the
+rest — a race by construction, in a pipeline whose whole argument is that tasks can be
+replayed.
 
-![The dataset the pipeline produces](docs/img/dataset_sample.png)
+**The tasks are independent.** `docs/airflow_run_evidence.md` shows a single task replayed
+on its own after the working area had been emptied: it fell back to the last archived
+artefact and succeeded, without replaying the extraction.
+
+**A failing source does not stop the others.** Fifteen tests simulate a spent quota, a
+timeout, a malformed answer, a truncated image, an oversized one and a network error
+mid-loop. Each failure is also **qualified** — `quota`, `network`, `malformed`, `empty`,
+`disabled` — and only the first three count as incidents. A source turned off because no
+API key was supplied is not an outage, and the dashboard says so rather than showing a red
+count.
+
+**The deduplication key misses nothing here — measured, not assumed.** Two measures on the
+123 collected publications: publications reachable through two URL variants, and one wire
+story republished by two outlets. Both return **0 pairs**. A test injects a realistic
+republication — tracking parameters, a `www.` prefix, the headline shouted — and checks the
+instrument sees it, so the zero means "nothing there" rather than "the measure is blind".
+
+The key **is** fragile in principle: it hashes the exact URL and the exact title. It was
+left alone because the measure gave no reason to change it, and rehashing would alter every
+publication's identifier for a published before/after of 0 → 0. The measure also showed why
+this corpus cannot exercise it: the four sources barely overlap, and two publishers carry
+the same wire story under genuinely different URLs — something no URL normalisation reaches.
 
 ## What the audit found
-
-The repository was audited before publication. Three findings were worth the trouble.
 
 **The load step could not run.** `pipeline.py` imported `load.etape_chargement` and then
 defined a function of the same name. In Python the definition rebinds the module-level
@@ -77,8 +102,7 @@ TypeError: run_load() takes from 0 to 1 positional arguments but 2 were given
 **The third task of the Airflow DAG could not complete**, and no test covered that path —
 the 82 existing tests exercised the modules in isolation, never the pipeline step that
 chains them. The database looked healthy because it had been filled before the shadowing
-was introduced. The loader is now called `load_dataset`, which says what it does and no
-longer collides, and a regression test covers the path.
+was introduced.
 
 *Transferable lesson: a populated database does not prove a pipeline works.*
 
@@ -91,32 +115,34 @@ keys. All of it is now English — which is how the stale task names in the runb
 light: it still told the reader to run `airflow tasks test multimodal_etl transformation`,
 a task that had been renamed to `transform`.
 
-## What this does not prove
+## What the dataset is actually worth
 
-The DAG's documentation makes four promises. One is demonstrated, three are not.
+`reports/data_quality.md` is regenerated by `scripts/quality_report.py`. Its most useful
+line is not a headline number:
 
-**Demonstrated — the tasks are independent.** `docs/airflow_run_evidence.md` shows a single
-task replayed on its own, falling back to the last archived artefact after the working area
-had been cleared, and succeeding without replaying the extraction.
+> The 32 labelled publications average **54.9 characters** of text, against 361.5 for the
+> unlabelled ones.
 
-**Not proven — idempotency is a property of the code, not of the schema.** The load reads
-the existing keys, then writes the rows it did not find. There is no unique constraint in
-the database, so two concurrent runs, or a crash between the read and the write, would
-insert duplicates. The table above shows the mechanism working; it does not show it holding
-under concurrency, because it would not.
+The labels come from FakeNewsNet and Fakeddit, which publish a headline and no article
+body. The only rows usable for supervised training are also the textually poorest: a model
+trained on this dataset would be learning from headlines. That is worth knowing before
+using it, and a raw count of 123 rows would have hidden it.
 
-**Not proven — the deduplication key is fragile.** The identifier hashes the exact URL and
-the exact title. A fixed typo, or a `utm_source` parameter, produces a different identifier
-for the same article. How many real duplicates that lets through has not been measured.
+![The dataset the pipeline produces](docs/img/dataset_sample.png)
 
-**Not proven — surviving a failing source.** Each connector is wrapped in its own
-`try/except` and failures are counted, but no test simulates a source that is down.
+## What this still does not prove
 
-**The volume tests none of this.** A few hundred publications reveal neither the memory
-behaviour, nor the races, nor the collisions. The pipeline demonstrates an architecture,
-not its resistance at scale.
+**Scale.** A few hundred publications reveal neither the memory behaviour, nor contention,
+nor hash collisions. The pipeline demonstrates an architecture, not its resistance at scale.
+Generating an artificial volume would measure a simulation, so it was not done.
 
-The design and implementation plan for closing the three open points are written.
+**Concurrency in practice.** The database now refuses a duplicate key, which is what makes
+concurrent writers safe in principle. No test runs two loaders at once against the same
+database.
+
+**That the sources stay reachable.** Every figure here depends on feeds that can change
+format or disappear. The monitoring plan says which indicator would catch that, and the
+thresholds are calibrated on measured behaviour rather than on wishes.
 
 ## Structure
 
@@ -131,13 +157,15 @@ The design and implementation plan for closing the three open points are written
 │   ├── load.py             # step L: incremental relational load
 │   ├── transit.py          # working area between steps (task independence)
 │   ├── pipeline.py         # the 5 steps, called by the scripts AND by the DAG
-│   └── kpi.py              # indicators and alert thresholds
+│   ├── kpi.py              # indicators and alert thresholds
+│   └── quality/            # measurements on the dataset: duplicates, completeness
 ├── dags/                   # the Airflow DAG — calls pipeline.py, holds no logic
 ├── docker/                 # image and compose file for a local Airflow
 ├── dashboard/              # the Streamlit application
 ├── notebooks/              # the steps, walked through one at a time
 ├── docs/                   # sources, schema, monitoring, run evidence
-└── tests/                  # 83 tests
+├── reports/                # the generated data quality report
+└── tests/                  # 107 tests
 ```
 
 The schema is generated from one place: `schema.py` describes every field, and the diagram,
@@ -150,6 +178,7 @@ appears everywhere else on its own.
 uv sync --extra dev
 uv run python scripts/run_etl.py            # the whole pipeline, one command
 uv run streamlit run dashboard/app.py       # the KPI dashboard
+uv run python scripts/quality_report.py     # regenerate reports/data_quality.md
 ```
 
 No key is needed: the pipeline runs on the RSS feeds and a versioned Fakeddit sample.
@@ -182,11 +211,12 @@ docker compose -f docker/docker-compose.airflow.yaml up -d
 | [`docs/monitoring_plan.md`](docs/monitoring_plan.md) | Which indicators, which thresholds, and what happens when one is crossed |
 | [`docs/airflow_runbook.md`](docs/airflow_runbook.md) | Running the orchestration yourself |
 | [`docs/airflow_run_evidence.md`](docs/airflow_run_evidence.md) | The captured logs of a real DAG run |
+| [`reports/data_quality.md`](reports/data_quality.md) | What fraction of the dataset is actually usable |
 
 ## Quality
 
 ```powershell
-uv run python -m pytest      # 83 tests
+uv run python -m pytest      # 107 tests
 uv run ruff check .
 uv run bandit -c pyproject.toml -r src
 ```
