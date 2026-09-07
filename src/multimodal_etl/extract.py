@@ -16,6 +16,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import requests
+
 from multimodal_etl.config import RAW_DIR, ExtractionConfig, ImageConfig, ensure_dirs
 from multimodal_etl.images import download_images
 from multimodal_etl.logging_setup import get_logger
@@ -33,48 +35,85 @@ _CONNECTORS = {
 }
 
 
+# Why a source produced nothing. Only the first three are incidents: a source that is
+# turned off, or that legitimately had nothing to give, is not a failure — and treating it
+# as one would put a healthy pipeline permanently in the amber.
+OK, QUOTA, NETWORK, MALFORMED, EMPTY, DISABLED = (
+    "ok",
+    "quota",
+    "network",
+    "malformed",
+    "empty",
+    "disabled",
+)
+INCIDENTS = frozenset({QUOTA, NETWORK, MALFORMED})
+
+# Sources that can turn themselves off: their silence is a configuration choice.
+_OPTIONAL = {"newsdata": newsdata.is_enabled}
+
+
+def _cause_of(exc: Exception) -> str:
+    """Name what went wrong, so a spent quota is not confused with a broken connector."""
+    if isinstance(exc, requests.exceptions.HTTPError) and "429" in str(exc):
+        return QUOTA
+    if isinstance(exc, requests.exceptions.RequestException):
+        return NETWORK
+    return MALFORMED
+
+
 def _timestamp() -> str:
     """Compact timestamp, used to name the output files."""
     return datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
 
-def collect_sources(config: ExtractionConfig | None = None) -> tuple[list[dict], dict[str, int]]:
+def collect_sources(
+    config: ExtractionConfig | None = None,
+) -> tuple[list[dict], dict[str, dict[str, object]]]:
     """Run every connector and return the raw publications and the per-source tally.
 
-    The tally — number of publications per connector, ``-1`` on failure — feeds the
-    "failed sources" KPI of the monitoring plan.
+    Each entry of the tally carries a ``count`` — ``-1`` on failure — and a ``cause``
+    saying **why** a source produced nothing. Counting without qualifying made a run that
+    brought back three sources out of four look like a successful one.
     """
     config = config or ExtractionConfig()
     ensure_dirs()
 
     publications: list[dict] = []
-    tally: dict[str, int] = {}
+    tally: dict[str, dict[str, object]] = {}
 
     for name, connector in _CONNECTORS.items():
         logger.info("Extract: starting source '%s'", name)
         try:
             collected = connector(config)
         except Exception as exc:
-            logger.error("Extract: source '%s' failed: %s", name, exc)
-            tally[name] = -1
+            cause = _cause_of(exc)
+            logger.error("Extract: source '%s' failed (%s): %s", name, cause, exc)
+            tally[name] = {"count": -1, "cause": cause}
             continue
-        logger.info("Extract: source '%s' -> %d publications", name, len(collected))
-        tally[name] = len(collected)
+
+        if collected:
+            cause = OK
+        elif not _OPTIONAL.get(name, lambda: True)():
+            cause = DISABLED
+        else:
+            cause = EMPTY
+        logger.info("Extract: source '%s' -> %d publications (%s)", name, len(collected), cause)
+        tally[name] = {"count": len(collected), "cause": cause}
         publications.extend(collected)
 
     logger.info("Extract: %d raw publications in total", len(publications))
     return publications, tally
 
 
-def failed_sources(tally: dict[str, int]) -> int:
+def failed_sources(tally: dict[str, dict[str, object]]) -> int:
     """Count the sources that are genuinely down, for the monitoring plan's alert.
 
-    A source that is deliberately **turned off** is not an outage: NewsData.io only runs
-    when an API key is supplied, and its absence must not raise an alert. Without that
-    distinction, a healthy pipeline would go amber as soon as it ran without a key.
+    A source that is deliberately **turned off**, or that had nothing new to give, is not
+    an outage: NewsData.io only runs when an API key is supplied, and its absence must not
+    raise an alert. Without that distinction, a healthy pipeline would go amber as soon as
+    it ran without a key.
     """
-    disabled = set() if newsdata.is_enabled() else {"newsdata"}
-    return sum(1 for name, count in tally.items() if count <= 0 and name not in disabled)
+    return sum(1 for entry in tally.values() if entry.get("cause") in INCIDENTS)
 
 
 def extract_all(config: ExtractionConfig | None = None) -> list[dict]:
