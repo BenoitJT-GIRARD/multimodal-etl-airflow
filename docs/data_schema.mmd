@@ -1,8 +1,8 @@
 erDiagram
-    SOURCE ||--o{ PUBLICATION : publie
-    PUBLICATION ||--|| CONTENU_TEXTE : porte
-    PUBLICATION ||--|| CONTENU_IMAGE : associe
-    PUBLICATION ||--o| LABEL : annote
+    SOURCE ||--o{ PUBLICATION : publishes
+    PUBLICATION ||--|| TEXT_CONTENT : carries
+    PUBLICATION ||--|| IMAGE_CONTENT : pairs
+    PUBLICATION ||--o| LABEL : annotates
 
     PUBLICATION {
         string id PK "KEY"
@@ -21,14 +21,14 @@ erDiagram
         string access_method  "METADATA"
     }
 
-    CONTENU_TEXTE {
+    TEXT_CONTENT {
         string id PK "KEY"
         string title  "NLP"
         string text  "NLP"
         int text_length  "METADATA"
     }
 
-    CONTENU_IMAGE {
+    IMAGE_CONTENT {
         string id PK "KEY"
         string image_url  "VISION"
         string image_path  "VISION"

@@ -1,12 +1,12 @@
-"""Tableau de bord KPI du pipeline ETL.
+"""KPI dashboard of the ETL pipeline.
 
-Application Streamlit qui visualise les indicateurs de performance du pipeline
-d'extraction multimodale. Elle est pensée pour être lisible **par un public non
-technique** : chaque chiffre est accompagné d'une phrase qui dit ce qu'il mesure,
-les seuils du plan de monitoring sont traduits en feux verts / orange / rouges, et
-un échantillon d'images montre concrètement ce que le pipeline produit.
+A Streamlit application visualising the performance indicators of the multimodal
+extraction pipeline. It is built to be readable **by a non-technical audience**: every
+figure comes with a sentence saying what it measures, the monitoring plan's thresholds are
+turned into green / amber / red lights, and a sample of images shows concretely what the
+pipeline produces.
 
-Lancement :
+Launch with:
     uv run streamlit run dashboard/app.py
 """
 
@@ -22,280 +22,276 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from multimodal_etl.config import chemin_absolu  # noqa: E402
+from multimodal_etl.config import absolute_path  # noqa: E402
 from multimodal_etl.kpi import (  # noqa: E402
-    charge_dernier_dataset,
     compute_kpis,
-    evalue_seuils,
-    historique_runs,
+    evaluate_thresholds,
+    load_latest_dataset,
+    run_history,
 )
 
-st.set_page_config(page_title="KPI du pipeline ETL", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Multimodal ETL — pipeline KPIs", page_icon="📊", layout="wide")
 
-# Pastille de couleur associée à chaque statut, pour une lecture immédiate.
-PASTILLES = {"vert": "🟢", "orange": "🟠", "rouge": "🔴"}
-
-
-def carte(colonne, libelle: str, valeur: str, aide: str) -> None:
-    """Affiche une carte KPI avec une infobulle explicative."""
-    colonne.metric(libelle, valeur, help=aide)
+# Coloured dot for each status, so the table reads at a glance.
+STATUS_DOTS = {"green": "🟢", "amber": "🟠", "red": "🔴"}
 
 
-def section_statut(kpis: dict) -> None:
-    """Confronte les indicateurs surveillés aux seuils du plan de monitoring."""
-    st.subheader("État du pipeline")
+def kpi_card(column, label: str, value: str, help_text: str) -> None:
+    """Display one KPI card with an explanatory tooltip."""
+    column.metric(label, value, help=help_text)
+
+
+def section_status(kpis: dict) -> None:
+    """Check the monitored indicators against the monitoring plan's thresholds."""
+    st.subheader("Pipeline status")
     st.caption(
-        "Chaque indicateur est comparé au seuil défini dans le plan de monitoring. "
-        "Vert : situation normale. Orange : à surveiller. Rouge : intervention requise."
+        "Each indicator is compared to the threshold set in the monitoring plan. "
+        "Green: normal. Amber: worth watching. Red: intervention required."
     )
 
-    evaluations = evalue_seuils(kpis)
-    tableau = pd.DataFrame(
+    evaluations = evaluate_thresholds(kpis)
+    table = pd.DataFrame(
         [
             {
-                "": PASTILLES[evaluation["statut"]],
-                "Indicateur": evaluation["libelle"],
-                "Valeur": evaluation["valeur"],
-                "Attendu": evaluation["attendu"],
-                "Pourquoi c'est suivi": evaluation["justification"],
+                "": STATUS_DOTS[evaluation["status"]],
+                "Indicator": evaluation["label"],
+                "Value": evaluation["value"],
+                "Expected": evaluation["expected"],
+                "Why it is tracked": evaluation["justification"],
             }
             for evaluation in evaluations
         ]
     )
-    st.dataframe(tableau, use_container_width=True, hide_index=True)
+    st.dataframe(table, use_container_width=True, hide_index=True)
 
-    alertes = [e for e in evaluations if e["statut"] == "rouge"]
-    if alertes:
+    alerts = [e for e in evaluations if e["status"] == "red"]
+    if alerts:
         st.error(
-            "Seuil critique franchi : "
-            + ", ".join(f"{a['libelle']} ({a['valeur']})" for a in alertes)
+            "Critical threshold crossed: "
+            + ", ".join(f"{a['label']} ({a['value']})" for a in alerts)
         )
 
 
-def section_qualite(qualite: dict) -> None:
-    """Cartes de qualité des données."""
-    st.subheader("Qualité des données")
+def section_quality(quality: dict) -> None:
+    """Data quality cards."""
+    st.subheader("Data quality")
     c1, c2, c3, c4 = st.columns(4)
-    carte(
+    kpi_card(
         c1,
-        "Taux de validité",
-        f"{qualite['taux_validite_pct']} %",
-        "Part des publications collectées qui passent tous les contrôles de qualité.",
+        "Validity rate",
+        f"{quality['validity_rate_pct']}%",
+        "Share of the collected publications that pass every quality check.",
     )
-    carte(
+    kpi_card(
         c2,
-        "Association texte-image",
-        f"{qualite['taux_association_texte_image_pct']} %",
-        "Part des publications retenues dont l'image est bien présente sur le disque.",
+        "Text-image pairing",
+        f"{quality['text_image_pairing_pct']}%",
+        "Share of the kept publications whose image really is on disk.",
     )
-    carte(
+    kpi_card(
         c3,
-        "Publications datées",
-        f"{qualite['taux_date_connue_pct']} %",
-        "Part des publications dont on connaît la date : sans elle, pas de suivi de fraîcheur.",
+        "Dated publications",
+        f"{quality['dated_rate_pct']}%",
+        "Share of publications whose date is known: without it, no freshness tracking.",
     )
-    carte(
+    kpi_card(
         c4,
-        "Doublons écartés",
-        f"{qualite['taux_doublons_pct']} %",
-        "Part des publications en double, détectées et supprimées à la transformation.",
+        "Duplicates dropped",
+        f"{quality['duplicate_rate_pct']}%",
+        "Share of duplicate publications, detected and removed at the transform step.",
     )
 
 
-def section_volume(volume: dict, fraicheur: dict, performance: dict) -> None:
-    """Cartes de volume, de fraîcheur et de coût."""
-    st.subheader("Volume, fraîcheur et coût")
+def section_volume(volume: dict, freshness: dict, performance: dict) -> None:
+    """Volume, freshness and cost cards."""
+    st.subheader("Volume, freshness and cost")
     c1, c2, c3, c4 = st.columns(4)
-    carte(
+    kpi_card(
         c1,
-        "Publications du jeu",
-        str(volume["nb_publications"]),
-        "Nombre de publications propres produites par la dernière exécution.",
+        "Publications in the dataset",
+        str(volume["publications"]),
+        "Number of clean publications produced by the last run.",
     )
-    carte(
+    kpi_card(
         c2,
-        "Total accumulé en base",
-        str(performance["publications_en_base"]),
-        "Le jeu de données grossit à chaque exécution : seules les nouveautés sont ajoutées.",
+        "Total in the database",
+        str(performance["publications_in_db"]),
+        "The dataset grows with every run: only the new rows are added.",
     )
-    carte(
+    kpi_card(
         c3,
-        "Âge médian",
-        f"{fraicheur['age_median_heures']} h",
-        "Ancienneté médiane des publications ingérées. Un détecteur de fake news a "
-        "besoin de contenus récents.",
+        "Median age",
+        f"{freshness['median_age_hours']} h",
+        "Median age of the ingested publications. A fake-news detector needs recent content.",
     )
-    carte(
+    kpi_card(
         c4,
-        "Disque occupé par les images",
-        f"{performance['poids_images_mo']} Mo",
-        "Coût de stockage des images téléchargées lors de la dernière exécution.",
+        "Disk used by images",
+        f"{performance['image_weight_mb']} MB",
+        "Storage cost of the images downloaded during the last run.",
     )
 
 
 def section_performance(performance: dict) -> None:
-    """Cartes de rapidité et de coût d'exécution."""
-    st.subheader("Performance de l'exécution")
+    """Speed and run-cost cards."""
+    st.subheader("Run performance")
     c1, c2, c3, c4 = st.columns(4)
-    carte(
+    kpi_card(
         c1,
-        "Durée totale",
-        f"{performance['duree_totale_sec']} s",
-        "Temps total du pipeline : extraction, transformation et chargement.",
+        "Total duration",
+        f"{performance['total_duration_sec']} s",
+        "Total pipeline time: extract, transform and load.",
     )
-    carte(
+    kpi_card(
         c2,
-        "Débit",
-        f"{performance['debit_publications_par_sec']} /s",
-        "Nombre de publications traitées par seconde.",
+        "Throughput",
+        f"{performance['publications_per_sec']} /s",
+        "Number of publications processed per second.",
     )
-    carte(
+    kpi_card(
         c3,
-        "Apport de l'exécution",
-        f"{performance['taux_nouveaute_pct']} %",
-        "Part des publications collectées qui n'étaient pas déjà en base.",
+        "What the run adds",
+        f"{performance['new_rate_pct']}%",
+        "Share of the collected publications that were not already in the database.",
     )
-    carte(
+    kpi_card(
         c4,
-        "Appels d'API consommés",
-        str(performance["appels_api_consommes"]),
-        "Consommation du quota NewsData.io — principal poste de coût externe.",
+        "API calls spent",
+        str(performance["api_calls_spent"]),
+        "NewsData.io quota consumed — the main external cost.",
     )
 
 
-def section_graphiques(volume: dict, performance: dict) -> None:
-    """Répartition des sources, méthodes d'accès et temps par étape."""
+def section_charts(volume: dict, performance: dict) -> None:
+    """Spread of sources and access methods, and time spent per step."""
     g1, g2 = st.columns(2)
 
     with g1:
-        st.markdown("**D'où viennent les publications ?**")
-        repartition = volume["repartition_sources"]
-        if repartition:
+        st.markdown("**Where do the publications come from?**")
+        distribution = volume["by_source"]
+        if distribution:
             figure = px.bar(
-                x=list(repartition.values()),
-                y=list(repartition.keys()),
+                x=list(distribution.values()),
+                y=list(distribution.keys()),
                 orientation="h",
-                labels={"x": "Nombre de publications", "y": "Source"},
-                color=list(repartition.keys()),
+                labels={"x": "Number of publications", "y": "Source"},
+                color=list(distribution.keys()),
             )
             figure.update_layout(showlegend=False, height=380)
             st.plotly_chart(figure, use_container_width=True)
 
     with g2:
-        st.markdown("**Temps passé à chaque étape (secondes)**")
-        etapes = {
-            "Extraction": performance["duree_extraction_sec"],
-            "Transformation": performance["duree_transformation_sec"],
-            "Chargement": performance["duree_chargement_sec"],
+        st.markdown("**Time spent at each step (seconds)**")
+        steps = {
+            "Extract": performance["extract_duration_sec"],
+            "Transform": performance["transform_duration_sec"],
+            "Load": performance["load_duration_sec"],
         }
         figure = px.bar(
-            x=list(etapes.keys()),
-            y=list(etapes.values()),
-            labels={"x": "Étape", "y": "Durée (s)"},
-            color=list(etapes.keys()),
+            x=list(steps.keys()),
+            y=list(steps.values()),
+            labels={"x": "Step", "y": "Duration (s)"},
+            color=list(steps.keys()),
         )
         figure.update_layout(showlegend=False, height=380)
         st.plotly_chart(figure, use_container_width=True)
 
 
-def section_historique() -> None:
-    """Évolution des exécutions dans le temps."""
-    historique = historique_runs()
-    if historique.empty or len(historique) < 2:
+def section_history() -> None:
+    """How the runs evolve over time."""
+    history = run_history()
+    if history.empty or len(history) < 2:
         st.info(
-            "L'historique apparaîtra dès la deuxième exécution du pipeline : il permet "
-            "de suivre les tendances plutôt qu'un instantané."
+            "The history appears from the pipeline's second run onwards: it is what lets "
+            "you follow trends rather than a snapshot."
         )
         return
 
-    st.subheader("Historique des exécutions")
+    st.subheader("Run history")
     g1, g2 = st.columns(2)
 
     with g1:
-        st.markdown("**Publications collectées et ajoutées, par exécution**")
+        st.markdown("**Publications collected and added, per run**")
         figure = px.line(
-            historique,
+            history,
             x="date",
-            y=["publications_extraites", "publications_ajoutees"],
+            y=["publications_extracted", "publications_added"],
             markers=True,
-            labels={"date": "Date d'exécution", "value": "Publications", "variable": ""},
+            labels={"date": "Run date", "value": "Publications", "variable": ""},
         )
         figure.update_layout(height=340)
         st.plotly_chart(figure, use_container_width=True)
 
     with g2:
-        st.markdown("**Taux de validité et durée, par exécution**")
+        st.markdown("**Validity rate and duration, per run**")
         figure = px.line(
-            historique,
+            history,
             x="date",
-            y=["taux_validite_pct", "duree_totale_sec"],
+            y=["validity_rate_pct", "total_duration_sec"],
             markers=True,
-            labels={"date": "Date d'exécution", "value": "Valeur", "variable": ""},
+            labels={"date": "Run date", "value": "Value", "variable": ""},
         )
         figure.update_layout(height=340)
         st.plotly_chart(figure, use_container_width=True)
 
 
-def section_apercu(df: pd.DataFrame) -> None:
-    """Composition du jeu de données et échantillon concret."""
-    st.subheader("Ce que le pipeline produit")
+def section_overview(df: pd.DataFrame) -> None:
+    """Composition of the dataset, and a concrete sample."""
+    st.subheader("What the pipeline produces")
 
     a1, a2 = st.columns([1, 2])
     with a1:
-        st.markdown("**Répartition des labels**")
-        labels = df["label"].fillna("non labellisé").value_counts()
+        st.markdown("**Spread of labels**")
+        labels = df["label"].fillna("unlabelled").value_counts()
         figure = px.pie(values=labels.to_numpy(), names=labels.index.tolist(), hole=0.4)
         figure.update_layout(height=320, margin={"t": 10, "b": 10})
         st.plotly_chart(figure, use_container_width=True)
     with a2:
-        st.markdown("**Aperçu des publications**")
-        colonnes = ["source", "title", "language", "has_image", "label"]
-        st.dataframe(df[colonnes].head(12), use_container_width=True, height=320)
+        st.markdown("**A look at the publications**")
+        columns = ["source", "title", "language", "has_image", "label"]
+        st.dataframe(df[columns].head(12), use_container_width=True, height=320)
 
-    st.markdown("**Quelques images associées aux textes ci-dessus**")
+    st.markdown("**A few images paired with the texts above**")
     st.caption(
-        "Ces fichiers ont été téléchargés et vérifiés par le pipeline : c'est la preuve "
-        "que chaque publication du jeu de données associe bien un texte et une image."
+        "These files were downloaded and verified by the pipeline: this is the proof that "
+        "every publication in the dataset really does pair a text with an image."
     )
-    apercu = df[df["has_image"]].head(6)
-    colonnes_images = st.columns(6)
-    for colonne, (_, publication) in zip(colonnes_images, apercu.iterrows(), strict=False):
-        chemin = chemin_absolu(publication["image_path"])
-        if chemin.is_file():
-            colonne.image(str(chemin), caption=publication["title"][:60], use_container_width=True)
+    preview = df[df["has_image"]].head(6)
+    image_columns = st.columns(6)
+    for column, (_, publication) in zip(image_columns, preview.iterrows(), strict=False):
+        path = absolute_path(publication["image_path"])
+        if path.is_file():
+            column.image(str(path), caption=publication["title"][:60], use_container_width=True)
 
 
 def main() -> None:
-    """Construit le tableau de bord à partir des derniers artefacts du pipeline."""
-    st.title("📊 Tableau de bord du pipeline d'extraction")
+    """Build the dashboard from the pipeline's latest artefacts."""
+    st.title("📊 Multimodal ETL — extraction pipeline dashboard")
     st.caption(
-        "Suivi de la qualité, du volume et de la performance du pipeline ETL qui alimente "
-        "le détecteur de fake news en données multimodales (texte + image)."
+        "Quality, volume and performance of the ETL pipeline that feeds the fake-news "
+        "detector with multimodal data (text + image)."
     )
 
-    df, stats, run = charge_dernier_dataset()
+    df, stats, run = load_latest_dataset()
     if df.empty:
-        st.warning(
-            "Aucun jeu de données trouvé. Lancez d'abord le pipeline : "
-            "`uv run python scripts/run_etl.py`."
-        )
+        st.warning("No dataset found. Run the pipeline first: `uv run python scripts/run_etl.py`.")
         return
 
     kpis = compute_kpis(df, stats, run)
 
-    section_statut(kpis)
-    section_qualite(kpis["qualite"])
-    section_volume(kpis["volume"], kpis["fraicheur"], kpis["performance"])
+    section_status(kpis)
+    section_quality(kpis["quality"])
+    section_volume(kpis["volume"], kpis["freshness"], kpis["performance"])
     section_performance(kpis["performance"])
-    section_graphiques(kpis["volume"], kpis["performance"])
-    section_historique()
-    section_apercu(df)
+    section_charts(kpis["volume"], kpis["performance"])
+    section_history()
+    section_overview(df)
 
     st.caption(
-        f"Dernière exécution : {run.get('run_at', 'inconnue')} "
-        f"(orchestrateur : {run.get('orchestrateur', 'n/c')}) · "
-        f"{kpis['volume']['nb_sources']} sources distinctes · "
-        f"longueur de texte moyenne : {kpis['qualite']['longueur_texte_moyenne']} caractères."
+        f"Last run: {run.get('run_at', 'unknown')} "
+        f"(orchestrator: {run.get('orchestrator', 'n/a')}) · "
+        f"{kpis['volume']['sources']} distinct sources · "
+        f"mean text length: {kpis['quality']['mean_text_length']} characters."
     )
 
 

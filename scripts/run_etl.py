@@ -1,11 +1,10 @@
-"""Pipeline ETL complet, exécutable en une commande.
+"""The whole ETL, in one command.
 
-Enchaîne les cinq étapes — extraction, transformation, chargement, métriques et
-nettoyage — dans le même ordre que le DAG Airflow, et **en appelant exactement les
-mêmes fonctions**. C'est la version « script » de référence : elle sert à valider
-le pipeline avant de l'orchestrer.
+Runs the five steps — extract, transform, load, metrics, cleanup — in the same order as
+the Airflow DAG and **calling exactly the same functions**. This is the reference script
+version: it is how the pipeline gets validated before being orchestrated.
 
-Usage :
+Usage:
     uv run python scripts/run_etl.py
 """
 
@@ -23,34 +22,34 @@ load_dotenv(ROOT / ".env")
 
 from multimodal_etl.logging_setup import get_logger, setup_logging
 from multimodal_etl.pipeline import (
-    etape_chargement,
-    etape_extraction,
-    etape_metriques,
-    etape_nettoyage,
-    etape_transformation,
+    run_cleanup,
+    run_extract,
+    run_load,
+    run_metrics,
+    run_transform,
 )
 
 logger = get_logger("multimodal_etl.etl")
 
 
 def main() -> None:
-    """Exécute l'ETL de bout en bout et affiche le bilan de l'exécution."""
+    """Run the ETL end to end and print what the run did."""
     setup_logging()
 
-    etape_extraction()
-    etape_transformation()
-    etape_chargement()
-    run = etape_metriques(orchestrateur="script")
-    etape_nettoyage()
+    run_extract()
+    run_transform()
+    run_load()
+    run = run_metrics(orchestrator="script")
+    run_cleanup()
 
-    duree = sum(run["durations_sec"].values())
-    logger.info("ETL terminé : %d nouvelles publications en %.2fs", run["rows_loaded"], duree)
+    elapsed = sum(run["durations_sec"].values())
+    logger.info("ETL finished: %d new publications in %.2fs", run["rows_loaded"], elapsed)
 
-    print(f"[ok] publications extraites  : {run['rows_extracted']}")
-    print(f"[ok] nouvelles en base       : {run['rows_loaded']}")
-    print(f"[ok] total accumulé en base  : {run['rows_in_db']}")
-    print(f"[ok] durée totale            : {duree:.2f} s")
-    print(f"[ok] fiche d'exécution       : {run['fichier']}")
+    print(f"[ok] publications extracted : {run['rows_extracted']}")
+    print(f"[ok] new in database        : {run['rows_loaded']}")
+    print(f"[ok] total in database      : {run['rows_in_db']}")
+    print(f"[ok] total duration         : {elapsed:.2f} s")
+    print(f"[ok] run record             : {run['file']}")
 
 
 if __name__ == "__main__":

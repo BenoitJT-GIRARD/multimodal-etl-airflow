@@ -1,4 +1,4 @@
-"""Tests unitaires de l'orchestration de l'extraction."""
+"""Unit tests of the extraction orchestration."""
 
 from __future__ import annotations
 
@@ -6,31 +6,31 @@ from multimodal_etl import extract
 from multimodal_etl.config import ExtractionConfig
 
 
-def test_une_source_qui_echoue_n_arrete_pas_les_autres(monkeypatch) -> None:
-    def connecteur_en_panne(config: ExtractionConfig) -> list[dict]:
-        raise RuntimeError("service indisponible")
+def test_a_failing_source_does_not_stop_the_others(monkeypatch) -> None:
+    def failing_connector(config: ExtractionConfig) -> list[dict]:
+        raise RuntimeError("service unavailable")
 
     monkeypatch.setattr(
         extract,
-        "_CONNECTEURS",
+        "_CONNECTORS",
         {
-            "qui_marche": lambda config: [{"title": "a"}, {"title": "b"}],
-            "en_panne": connecteur_en_panne,
+            "works": lambda config: [{"title": "a"}, {"title": "b"}],
+            "down": failing_connector,
         },
     )
 
-    publications, bilan = extract.collecte_sources(ExtractionConfig())
+    publications, tally = extract.collect_sources(ExtractionConfig())
 
     assert len(publications) == 2
-    assert bilan == {"qui_marche": 2, "en_panne": -1}
+    assert tally == {"works": 2, "down": -1}
 
 
-def test_sources_en_echec_compte_les_pannes(monkeypatch) -> None:
+def test_failed_sources_counts_the_outages(monkeypatch) -> None:
     monkeypatch.setattr(extract.newsdata, "is_enabled", lambda: True)
-    assert extract.sources_en_echec({"rss": 40, "newsdata": 0, "fakenewsnet": -1}) == 2
+    assert extract.failed_sources({"rss": 40, "newsdata": 0, "fakenewsnet": -1}) == 2
 
 
-def test_une_source_desactivee_n_est_pas_une_panne(monkeypatch) -> None:
-    # Sans clé d'API, NewsData.io ne s'active pas : ce n'est pas un incident.
+def test_a_disabled_source_is_not_an_outage(monkeypatch) -> None:
+    # Without an API key NewsData.io does not turn on: that is not an incident.
     monkeypatch.setattr(extract.newsdata, "is_enabled", lambda: False)
-    assert extract.sources_en_echec({"rss": 40, "newsdata": 0}) == 0
+    assert extract.failed_sources({"rss": 40, "newsdata": 0}) == 0
