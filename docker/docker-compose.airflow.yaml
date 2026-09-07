@@ -62,7 +62,7 @@ services:
         airflow db migrate
         airflow users create \
           --username airflow --password airflow \
-          --firstname Benoit --lastname Girard \
+          --firstname Local --lastname Admin \
           --role Admin --email airflow@example.com || true
     restart: on-failure
 
