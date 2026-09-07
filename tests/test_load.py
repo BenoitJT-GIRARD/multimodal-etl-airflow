@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import create_engine, text
+import pytest
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 
 from multimodal_etl.config import LoadConfig
 from multimodal_etl.load import (
@@ -137,3 +139,38 @@ def test_read_dataset_handles_parquet_and_csv(tmp_path: Path) -> None:
     parquet_path = tmp_path / "d.parquet"
     df.to_parquet(parquet_path, index=False)
     assert len(read_dataset(parquet_path)) == 1
+
+
+def test_the_primary_key_is_declared_in_the_database(tmp_path: Path) -> None:
+    # Idempotency has to be a property of the schema: application code that reads then
+    # writes is a race, and the DAG invites replaying tasks.
+    config = _config(tmp_path)
+    write_to_database(_dataset(("a",)), config)
+
+    engine = create_engine(config.resolved_url)
+    keys = {
+        table: inspect(engine).get_pk_constraint(table)["constrained_columns"]
+        for table in ("publication", "source", "text_content", "publications")
+    }
+    engine.dispose()
+
+    assert keys["publication"] == ["id"]
+    assert keys["source"] == ["source_id"]
+    assert keys["text_content"] == ["id"]
+    assert keys["publications"] == ["id"]
+
+
+def test_the_database_refuses_a_duplicate_key(tmp_path: Path) -> None:
+    # The constraint has to hold against a writer that bypasses the loader entirely.
+    config = _config(tmp_path)
+    write_to_database(_dataset(("a",)), config)
+
+    engine = create_engine(config.resolved_url)
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO source (source_id, source, source_type, "
+                "access_method) VALUES ('src_rss', 'x', 'rss', 'rss_feed')"
+            )
+        )
+    engine.dispose()
