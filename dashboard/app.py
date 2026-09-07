@@ -35,6 +35,25 @@ st.set_page_config(page_title="Multimodal ETL — pipeline KPIs", page_icon="�
 # Coloured dot for each status, so the table reads at a glance.
 STATUS_DOTS = {"green": "🟢", "amber": "🟠", "red": "🔴"}
 
+# A source can be silent for reasons that are not incidents. Showing the reason is what
+# stops a run that brought back three sources out of four from looking successful.
+CAUSE_DOTS = {
+    "ok": "🟢",
+    "empty": "🟠",
+    "disabled": "⚪",
+    "quota": "🔴",
+    "network": "🔴",
+    "malformed": "🔴",
+}
+CAUSE_LABELS = {
+    "ok": "delivered",
+    "empty": "answered, but had nothing",
+    "disabled": "turned off (no API key)",
+    "quota": "quota spent",
+    "network": "unreachable",
+    "malformed": "unexpected answer",
+}
+
 
 def kpi_card(column, label: str, value: str, help_text: str) -> None:
     """Display one KPI card with an explanatory tooltip."""
@@ -197,6 +216,32 @@ def section_charts(volume: dict, performance: dict) -> None:
         st.plotly_chart(figure, use_container_width=True)
 
 
+def section_sources(run: dict) -> None:
+    """Show what each source did on the last run, and why when it did nothing."""
+    per_source = run.get("per_source") or {}
+    if not per_source:
+        return
+
+    st.markdown("**How each source behaved on the last run**")
+    rows = []
+    for name, entry in per_source.items():
+        cause = entry.get("cause", "ok") if isinstance(entry, dict) else "ok"
+        count = entry.get("count", 0) if isinstance(entry, dict) else entry
+        rows.append(
+            {
+                "": CAUSE_DOTS.get(cause, "⚪"),
+                "Source": name,
+                "Publications": max(int(count), 0),
+                "Outcome": CAUSE_LABELS.get(cause, cause),
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.caption(
+        "A source that is turned off, or that simply had nothing new, is not an incident: "
+        "only the red rows count towards the failed-sources indicator."
+    )
+
+
 def section_history() -> None:
     """How the runs evolve over time."""
     history = run_history()
@@ -284,6 +329,7 @@ def main() -> None:
     section_volume(kpis["volume"], kpis["freshness"], kpis["performance"])
     section_performance(kpis["performance"])
     section_charts(kpis["volume"], kpis["performance"])
+    section_sources(run)
     section_history()
     section_overview(df)
 
