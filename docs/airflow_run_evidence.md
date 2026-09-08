@@ -86,7 +86,7 @@ sources contributed; the fourth reports `disabled` rather than a failure, becaus
 NewsData.io key was supplied — a configuration choice, not an incident, and the
 failed-sources indicator stays at zero.
 
-![The five tasks of the DAG, all successful](img/airflow_graph.png)
+![The five tasks of the DAG, all successful](images/airflow_graph.png)
 
 ---
 

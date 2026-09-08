@@ -23,8 +23,8 @@ def _valid_raw(image_path: str) -> dict[str, object]:
         "source": "rss:test",
         "source_type": "rss",
         "access_method": "rss_feed",
-        "title": "Un titre de test suffisamment long",
-        "text": "Un contenu de test assez long pour passer le seuil minimal de caractères.",
+        "title": "A test headline that is long enough to pass validation",
+        "text": "Test body copy, long enough to clear the minimum character threshold.",
         "url": "https://news.example.com/article",
         "image_url": "https://news.example.com/img.jpg",
         "image_path": image_path,
@@ -36,8 +36,8 @@ def _valid_raw(image_path: str) -> dict[str, object]:
 
 
 def test_clean_text_strips_html_and_whitespace() -> None:
-    brut = "<p>Bonjour   le   <b>monde</b> !</p>\n"
-    assert clean_text(brut) == "Bonjour le monde !"
+    raw = "<p>Hello   the   <b>world</b> !</p>\n"
+    assert clean_text(raw) == "Hello the world !"
 
 
 def test_clean_text_on_an_empty_string() -> None:
@@ -45,9 +45,9 @@ def test_clean_text_on_an_empty_string() -> None:
 
 
 def test_validate_image_requires_the_file_to_exist(tmp_path: Path) -> None:
-    fichier = tmp_path / "image.jpg"
-    fichier.write_bytes(b"contenu")
-    assert validate_image(str(fichier)) is True
+    image = tmp_path / "image.jpg"
+    image.write_bytes(b"bytes")
+    assert validate_image(str(image)) is True
     assert validate_image(str(tmp_path / "absent.jpg")) is False
     assert validate_image("") is False
 
@@ -55,14 +55,14 @@ def test_validate_image_requires_the_file_to_exist(tmp_path: Path) -> None:
 def test_validate_image_resolves_a_path_relative_to_the_project() -> None:
     # The dataset stores relative paths: they have to be resolved from the project root,
     # whatever the current working directory is.
-    fichier = PROJECT_ROOT / "data" / "raw" / "images" / "test_valide_image.jpg"
-    fichier.parent.mkdir(parents=True, exist_ok=True)
-    fichier.write_bytes(b"contenu")
+    image = PROJECT_ROOT / "data" / "raw" / "images" / "test_valid_image.jpg"
+    image.parent.mkdir(parents=True, exist_ok=True)
+    image.write_bytes(b"bytes")
     try:
-        assert validate_image("data/raw/images/test_valide_image.jpg") is True
-        assert validate_image("data/raw/images/inexistante.jpg") is False
+        assert validate_image("data/raw/images/test_valid_image.jpg") is True
+        assert validate_image("data/raw/images/missing.jpg") is False
     finally:
-        fichier.unlink(missing_ok=True)
+        image.unlink(missing_ok=True)
 
 
 def test_extract_domain() -> None:
@@ -130,13 +130,13 @@ def test_build_publication_on_a_valid_record(tmp_path: Path) -> None:
 
 def test_build_publication_rejects_a_missing_image_file() -> None:
     # The image URL is filled in, but no file could be downloaded.
-    brut = _valid_raw(image_path="")
-    assert build_publication(brut, TransformConfig(require_image=True), "2026-06-29") is None
+    raw = _valid_raw(image_path="")
+    assert build_publication(raw, TransformConfig(require_image=True), "2026-06-29") is None
 
 
 def test_build_publication_accepts_no_image_in_lenient_mode(tmp_path: Path) -> None:
-    brut = _valid_raw(image_path="")
-    pub = build_publication(brut, TransformConfig(require_image=False), "2026-06-29")
+    raw = _valid_raw(image_path="")
+    pub = build_publication(raw, TransformConfig(require_image=False), "2026-06-29")
     assert pub is not None
     assert pub.has_image is False
     assert pub.image_source == "none"
@@ -145,6 +145,6 @@ def test_build_publication_accepts_no_image_in_lenient_mode(tmp_path: Path) -> N
 def test_build_publication_rejects_text_that_is_too_short(tmp_path: Path) -> None:
     image = tmp_path / "img.jpg"
     image.write_bytes(b"image")
-    brut = _valid_raw(str(image))
-    brut["text"] = "court"
-    assert build_publication(brut, TransformConfig(), "2026-06-29") is None
+    raw = _valid_raw(str(image))
+    raw["text"] = "too short"
+    assert build_publication(raw, TransformConfig(), "2026-06-29") is None

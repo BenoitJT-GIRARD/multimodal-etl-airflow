@@ -8,7 +8,7 @@ what it is for in the AI use case. It is independent of the storage technology â
 
 The diagram and this dictionary are generated from `src/multimodal_etl/schema.py`, which is
 the single source of truth: adding a field to the code makes it appear everywhere. The
-renderings are `data_schema.mmd`, `data_schema.png` and `data_schema.pdf`.
+renderings are `data_schema.mmd`, `images/data_schema.png` and `data_schema.pdf`.
 
 ## 1. Conceptual model
 

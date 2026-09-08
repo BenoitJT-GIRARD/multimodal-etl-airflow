@@ -1,29 +1,31 @@
 # Multimodal ETL
 
-An ETL pipeline that collects **text-and-image publications** from four sources, cleans
-them into a typed dataset, loads them into a relational database, and reports on itself.
-Orchestrated by Apache Airflow, watched by a KPI dashboard.
+A pipeline that collects text-and-image publications from four live sources, cleans them
+into a typed dataset, loads them into a relational database, and reports on what the
+dataset is worth. Orchestrated by Apache Airflow.
 
-The rule that defines the dataset: **no image on disk, no publication**. A URL is not an
-image, so every image is downloaded and opened by Pillow before the publication is kept.
+**Project status** — finished, and archived in a runnable state. The CI is frozen to manual
+trigger so that nothing here decays into a red badge on a project nobody maintains. The
+pipeline still runs today, against live sources, with one command — and because the sources
+are live, the same command tomorrow returns different numbers.
 
-![The KPI dashboard after a run](docs/img/dashboard.png)
+## The problem
 
-## Project status
+A dataset for multimodal fake-news detection needs a text *and* an image for every row.
+Four sources will each give you one of those reliably and the other only sometimes: RSS
+feeds carry an image URL that may 404, FakeNewsNet publishes CSVs with no image at all,
+and an API can go quiet the moment its quota runs out.
 
-**Deliberately finished.** This is a lab project: it was built to work end to end, it was
-then audited, the defects the audit found were fixed, and the promises it made were
-measured. It is not maintained beyond that, and its CI does not run on a schedule.
+The tempting shortcut is to keep the row and record the URL. It produces a dataset that
+looks complete and collapses the first time anyone tries to train on it, one dead link at
+a time.
 
-What that means concretely:
+So the rule this pipeline is built around is **no image on disk, no publication**. A URL is
+not an image: every one is downloaded and opened by Pillow before the row is kept. And
+because that rule throws work away, the pipeline has to be able to replay any step without
+replaying the others — which is what most of the engineering below is actually about.
 
-- the pipeline runs today, against live sources, with one command;
-- the figures below come from a real run and are dated, because the sources are live news
-  feeds — the same command tomorrow returns different numbers, and that is the point;
-- what the pipeline claims is now either **proven** or **listed as unproven**. Both lists
-  are below.
-
-## What one run does
+## What it does
 
 Four sources, four access methods:
 
@@ -37,6 +39,15 @@ Four sources, four access methods:
 The FakeNewsNet CSVs carry no image, so the pipeline recovers one from the article's Open
 Graph metadata. Publications without a usable image are dropped at the transform step.
 
+Five tasks, chained by an Airflow DAG that holds no logic of its own — it calls the same
+`pipeline.py` the scripts do.
+
+![The five tasks of the DAG, all successful](docs/images/airflow_graph.png)
+
+A Streamlit dashboard reads the run records and the alert thresholds.
+
+![The KPI dashboard after a run](docs/images/dashboard.png)
+
 **One run, 2026-09-03** — no NewsData key, so that source turned itself off cleanly:
 
 | | |
@@ -48,6 +59,8 @@ Graph metadata. Publications without a usable image are dropped at the transform
 | of which recovered from Open Graph | 8 |
 | Labelled with ground truth | 32 (26%) |
 | Total duration | 56.8 s |
+
+![The dataset the pipeline produces](docs/images/dataset_sample.png)
 
 ## What is proven
 
@@ -84,38 +97,12 @@ instrument sees it, so the zero means "nothing there" rather than "the measure i
 
 The key **is** fragile in principle: it hashes the exact URL and the exact title. It was
 left alone because the measure gave no reason to change it, and rehashing would alter every
-publication's identifier for a published before/after of 0 → 0. The measure also showed why
-this corpus cannot exercise it: the four sources barely overlap, and two publishers carry
-the same wire story under genuinely different URLs — something no URL normalisation reaches.
+publication's identifier for a published before-and-after of 0 → 0. The measure also showed
+why this corpus cannot exercise it: the four sources barely overlap, and two publishers
+carry the same wire story under genuinely different URLs — something no URL normalisation
+reaches.
 
-## What the audit found
-
-**The load step could not run.** `pipeline.py` imported `load.etape_chargement` and then
-defined a function of the same name. In Python the definition rebinds the module-level
-name, so the inner call resolved to the pipeline's own function, which takes one argument
-instead of two:
-
-```
-TypeError: run_load() takes from 0 to 1 positional arguments but 2 were given
-```
-
-**The third task of the Airflow DAG could not complete**, and no test covered that path —
-the 82 existing tests exercised the modules in isolation, never the pipeline step that
-chains them. The database looked healthy because it had been filled before the shadowing
-was introduced.
-
-*Transferable lesson: a populated database does not prove a pipeline works.*
-
-**A copy of the whole repository was committed inside itself.** A 72-file archive built for
-submission, purged from the full history. The repository dropped to 491 KiB.
-
-**The code was French and the documentation English.** 34 Python files out of 35 had French
-docstrings, and the run records, the statistics files and three SQL tables used French
-keys. All of it is now English — which is how the stale task names in the runbook came to
-light: it still told the reader to run `airflow tasks test multimodal_etl transformation`,
-a task that had been renamed to `transform`.
-
-## What the dataset is actually worth
+### What the dataset is actually worth
 
 `reports/data_quality.md` is regenerated by `scripts/quality_report.py`. Its most useful
 line is not a headline number:
@@ -128,49 +115,38 @@ body. The only rows usable for supervised training are also the textually poores
 trained on this dataset would be learning from headlines. That is worth knowing before
 using it, and a raw count of 123 rows would have hidden it.
 
-![The dataset the pipeline produces](docs/img/dataset_sample.png)
+## Why these numbers can be believed
 
-## What this still does not prove
+Four things were wrong, and the first one is the reason the rest were worth looking for.
 
-**Scale.** A few hundred publications reveal neither the memory behaviour, nor contention,
-nor hash collisions. The pipeline demonstrates an architecture, not its resistance at scale.
-Generating an artificial volume would measure a simulation, so it was not done.
-
-**Concurrency in practice.** The database now refuses a duplicate key, which is what makes
-concurrent writers safe in principle. No test runs two loaders at once against the same
-database.
-
-**That the sources stay reachable.** Every figure here depends on feeds that can change
-format or disappear. The monitoring plan says which indicator would catch that, and the
-thresholds are calibrated on measured behaviour rather than on wishes.
-
-## Structure
+**The load step could not run.** `pipeline.py` imported `load.etape_chargement` and then
+defined a function of the same name. In Python the definition rebinds the module-level
+name, so the inner call resolved to the pipeline's own function, which takes one argument
+instead of two:
 
 ```
-├── src/multimodal_etl/
-│   ├── config.py           # paths and parameters, as frozen dataclasses
-│   ├── schema.py           # the publication schema — single source of truth
-│   ├── sources/            # one module per source + the Open Graph enrichment
-│   ├── images.py           # download and validation of the images
-│   ├── extract.py          # step E: collect -> raw JSON + image files
-│   ├── transform.py        # step T: clean, validate, normalise
-│   ├── load.py             # step L: incremental relational load
-│   ├── transit.py          # working area between steps (task independence)
-│   ├── pipeline.py         # the 5 steps, called by the scripts AND by the DAG
-│   ├── kpi.py              # indicators and alert thresholds
-│   └── quality/            # measurements on the dataset: duplicates, completeness
-├── dags/                   # the Airflow DAG — calls pipeline.py, holds no logic
-├── docker/                 # image and compose file for a local Airflow
-├── dashboard/              # the Streamlit application
-├── notebooks/              # the steps, walked through one at a time
-├── docs/                   # sources, schema, monitoring, run evidence
-├── reports/                # the generated data quality report
-└── tests/                  # 107 tests
+TypeError: run_load() takes from 0 to 1 positional arguments but 2 were given
 ```
 
-The schema is generated from one place: `schema.py` describes every field, and the diagram,
-the data dictionary and the table split are all derived from it. A field added to the code
-appears everywhere else on its own.
+**The third task of the Airflow DAG could not complete**, and no test covered that path —
+the 82 tests that existed exercised the modules in isolation, never the pipeline step that
+chains them. The database looked healthy because it had been filled before the shadowing
+was introduced. A populated database does not prove a pipeline works.
+
+**A copy of the whole repository was committed inside itself.** A 72-file archive, purged
+from the full history. The repository dropped to 491 KiB.
+
+**The code was French and the documentation English.** 34 Python files out of 35 had French
+docstrings, and the run records, the statistics files and three SQL tables used French
+keys. All of it is now English — which is how the stale task names in the runbook came to
+light: it still told the reader to run `airflow tasks test multimodal_etl transformation`,
+a task renamed to `transform` some time earlier.
+
+Two properties are asserted rather than described. The thresholds in the monitoring plan
+are not copied by hand — they live in `multimodal_etl.kpi.THRESHOLDS`, and a test asserts
+the document names every one of them. The same goes for the schema: `schema.py` describes
+every field, the diagram and the data dictionary are derived from it, and a test asserts
+they cover every field. A field added to the code appears everywhere else on its own.
 
 ## Running it
 
@@ -181,8 +157,8 @@ uv run streamlit run dashboard/app.py       # the KPI dashboard
 uv run python scripts/quality_report.py     # regenerate reports/data_quality.md
 ```
 
-No key is needed: the pipeline runs on the RSS feeds and a versioned Fakeddit sample.
-A NewsData.io key turns on the fourth source; without one it disables itself and the run
+No key is needed: the pipeline runs on the RSS feeds and a versioned Fakeddit sample. A
+NewsData.io key turns on the fourth source; without one it disables itself and the run
 carries on. Each step also runs on its own:
 
 ```powershell
@@ -202,6 +178,14 @@ docker compose -f docker/docker-compose.airflow.yaml up -d
 # http://localhost:8080, DAG: multimodal_etl
 ```
 
+Checks:
+
+```powershell
+uv run python -m pytest      # 107 tests
+uv run ruff check .
+uv run bandit -c pyproject.toml -r src
+```
+
 ## Documentation
 
 | Document | What it answers |
@@ -213,22 +197,43 @@ docker compose -f docker/docker-compose.airflow.yaml up -d
 | [`docs/airflow_run_evidence.md`](docs/airflow_run_evidence.md) | The captured logs of a real DAG run |
 | [`reports/data_quality.md`](reports/data_quality.md) | What fraction of the dataset is actually usable |
 
-`docs/data_schema.md` and its diagram are redrawn from `multimodal_etl.schema.FIELDS` — the
-single source of truth for the field list — by `uv run python scripts/build_schema_diagram.py`,
-so the documentation cannot drift away from the code it describes.
+## Structure
 
-## Quality
-
-```powershell
-uv run python -m pytest      # 107 tests
-uv run ruff check .
-uv run bandit -c pyproject.toml -r src
+```
+├── src/multimodal_etl/
+│   ├── config.py           # paths and parameters, as frozen dataclasses
+│   ├── schema.py           # the publication schema — single source of truth
+│   ├── sources/            # one module per source + the Open Graph enrichment
+│   ├── images.py           # download and validation of the images
+│   ├── extract.py          # step E: collect -> raw JSON + image files
+│   ├── transform.py        # step T: clean, validate, normalise
+│   ├── load.py             # step L: incremental relational load
+│   ├── transit.py          # working area between steps (task independence)
+│   ├── pipeline.py         # the 5 steps, called by the scripts AND by the DAG
+│   ├── kpi.py              # indicators and alert thresholds
+│   └── quality/            # measurements on the dataset: duplicates, completeness
+├── dags/                   # the Airflow DAG — calls pipeline.py, holds no logic
+├── docker/                 # image and compose file for a local Airflow
+├── dashboard/              # the Streamlit application
+├── docs/                   # sources, schema, monitoring, run evidence
+├── notebooks/              # the steps, walked through one at a time
+├── reports/                # the generated data quality report
+└── tests/                  # 107 tests
 ```
 
-The thresholds in the monitoring plan are not copied by hand: they live in
-`multimodal_etl.kpi.THRESHOLDS`, and a test asserts the document names every one of them.
-The same goes for the schema — a test asserts the data dictionary and the diagram cover
-every field.
+## What this does not prove
+
+**Scale.** A few hundred publications reveal neither the memory behaviour, nor contention,
+nor hash collisions. The pipeline demonstrates an architecture, not its resistance at
+scale. Generating an artificial volume would measure a simulation, so it was not done.
+
+**Concurrency in practice.** The database now refuses a duplicate key, which is what makes
+concurrent writers safe in principle. No test runs two loaders at once against the same
+database.
+
+**That the sources stay reachable.** Every figure here depends on feeds that can change
+format or disappear. The monitoring plan says which indicator would catch that, and the
+thresholds are calibrated on measured behaviour rather than on wishes.
 
 ## Licence and data
 
