@@ -226,6 +226,24 @@ The thresholds in the monitoring plan are not copied by hand: they live in
 The same goes for the schema — a test asserts the data dictionary and the diagram cover
 every field.
 
-## Licence
+## Licence and data
 
-MIT
+MIT, for the code.
+
+**No third-party data is redistributed here.** The four sources are read at run time and
+each keeps its own terms:
+
+| Source | Access | Terms to observe |
+|---|---|---|
+| RSS feeds (The Guardian, BBC, ABC News) | public feeds | each publisher's terms of use; headlines and links only |
+| NewsData.io | API key | the provider's API terms; no key is shipped |
+| FakeNewsNet | download from its repository | its own research licence and citation |
+| Fakeddit | download from its host | its own research licence and citation |
+
+The only data file in the repository, `data/samples/fakeddit_sample.tsv`, is **synthetic**:
+twenty-five made-up rows with the real column structure, so the tests and the documentation
+can show the shape of a record without carrying anyone's content. Images are downloaded
+into `data/images/` at run time and are not committed.
+
+A run therefore reproduces the pipeline, not the corpus. That is deliberate — the sources
+are live, and the figures in this README are dated for the same reason.
