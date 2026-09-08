@@ -213,6 +213,10 @@ docker compose -f docker/docker-compose.airflow.yaml up -d
 | [`docs/airflow_run_evidence.md`](docs/airflow_run_evidence.md) | The captured logs of a real DAG run |
 | [`reports/data_quality.md`](reports/data_quality.md) | What fraction of the dataset is actually usable |
 
+`docs/data_schema.md` and its diagram are redrawn from `multimodal_etl.schema.FIELDS` — the
+single source of truth for the field list — by `uv run python scripts/build_schema_diagram.py`,
+so the documentation cannot drift away from the code it describes.
+
 ## Quality
 
 ```powershell
