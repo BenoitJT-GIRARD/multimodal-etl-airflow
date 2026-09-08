@@ -257,68 +257,6 @@ wheels = [
 ]
 
 [[package]]
-name = "multimodal_etl"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "beautifulsoup4" },
-    { name = "feedparser" },
-    { name = "lxml" },
-    { name = "pandas" },
-    { name = "pillow" },
-    { name = "plotly" },
-    { name = "pyarrow" },
-    { name = "python-dotenv" },
-    { name = "requests" },
-    { name = "sqlalchemy" },
-    { name = "streamlit" },
-    { name = "tldextract" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "bandit" },
-    { name = "ipykernel" },
-    { name = "jupyter" },
-    { name = "matplotlib" },
-    { name = "nbconvert" },
-    { name = "nbformat" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "python-pptx" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bandit", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=1.7" },
-    { name = "beautifulsoup4", specifier = ">=4.12" },
-    { name = "feedparser", specifier = ">=6.0" },
-    { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29" },
-    { name = "jupyter", marker = "extra == 'dev'", specifier = ">=1.1" },
-    { name = "lxml", specifier = ">=5.3" },
-    { name = "matplotlib", marker = "extra == 'dev'", specifier = ">=3.11.1" },
-    { name = "nbconvert", marker = "extra == 'dev'", specifier = ">=7.16" },
-    { name = "nbformat", marker = "extra == 'dev'", specifier = ">=5.10" },
-    { name = "pandas", specifier = ">=2.2" },
-    { name = "pillow", specifier = ">=10.4" },
-    { name = "plotly", specifier = ">=5.24" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0" },
-    { name = "pyarrow", specifier = ">=16" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0" },
-    { name = "python-dotenv", specifier = ">=1.0" },
-    { name = "python-pptx", marker = "extra == 'dev'", specifier = ">=1.0" },
-    { name = "requests", specifier = ">=2.32" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7" },
-    { name = "sqlalchemy", specifier = ">=2.0" },
-    { name = "streamlit", specifier = ">=1.39" },
-    { name = "tldextract", specifier = ">=5.1" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "click"
 version = "8.4.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1164,6 +1102,68 @@ sdist = { url = "https://files.pythonhosted.org/packages/04/5f/007786743f9622244
 wheels = [
     { url = "https://files.pythonhosted.org/packages/44/43/894c2cbbcbdf53b57d1257a249811abe2ee9ab7ef76af301b40f1c054533/mistune-3.3.2-py3-none-any.whl", hash = "sha256:a678a56387d487db7368ede4647cb2ba1deff22ce61f92343e4ebe0ddfce4f2d", size = 61554, upload-time = "2026-06-23T00:29:27.088Z" },
 ]
+
+[[package]]
+name = "multimodal-etl"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "feedparser" },
+    { name = "lxml" },
+    { name = "pandas" },
+    { name = "pillow" },
+    { name = "plotly" },
+    { name = "pyarrow" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+    { name = "sqlalchemy" },
+    { name = "streamlit" },
+    { name = "tldextract" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "bandit" },
+    { name = "ipykernel" },
+    { name = "jupyter" },
+    { name = "matplotlib" },
+    { name = "nbconvert" },
+    { name = "nbformat" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "python-pptx" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bandit", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=1.7" },
+    { name = "beautifulsoup4", specifier = ">=4.12" },
+    { name = "feedparser", specifier = ">=6.0" },
+    { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29" },
+    { name = "jupyter", marker = "extra == 'dev'", specifier = ">=1.1" },
+    { name = "lxml", specifier = ">=5.3" },
+    { name = "matplotlib", marker = "extra == 'dev'", specifier = ">=3.11.1" },
+    { name = "nbconvert", marker = "extra == 'dev'", specifier = ">=7.16" },
+    { name = "nbformat", marker = "extra == 'dev'", specifier = ">=5.10" },
+    { name = "pandas", specifier = ">=2.2" },
+    { name = "pillow", specifier = ">=10.4" },
+    { name = "plotly", specifier = ">=5.24" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0" },
+    { name = "pyarrow", specifier = ">=16" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0" },
+    { name = "python-dotenv", specifier = ">=1.0" },
+    { name = "python-pptx", marker = "extra == 'dev'", specifier = ">=1.0" },
+    { name = "requests", specifier = ">=2.32" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7" },
+    { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "streamlit", specifier = ">=1.39" },
+    { name = "tldextract", specifier = ">=5.3" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "narwhals"

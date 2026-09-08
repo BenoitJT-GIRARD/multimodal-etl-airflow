@@ -56,11 +56,17 @@ def validate_image(image_path: str) -> bool:
 
 
 def extract_domain(url: str) -> str:
-    """Pull the registered domain name out of a URL (a reliability signal)."""
+    """Pull the registered domain out of a URL (a reliability signal).
+
+    `top_domain_under_public_suffix` rather than `registered_domain`: same value, and the
+    old name is deprecated since tldextract 5.3. The call was emitting a DeprecationWarning
+    on every record the pipeline transformed, and the test configuration was ignoring the
+    whole category.
+    """
     if not url:
         return ""
     extracted = tldextract.extract(url)
-    return extracted.registered_domain or extracted.domain or ""
+    return extracted.top_domain_under_public_suffix or extracted.domain or ""
 
 
 def normalise_label(label: object) -> str | None:

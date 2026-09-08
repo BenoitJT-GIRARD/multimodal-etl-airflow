@@ -21,7 +21,8 @@ dependencies = [
     "feedparser>=6.0",
     "beautifulsoup4>=4.12",
     "lxml>=5.3",
-    "tldextract>=5.1",
+    # 5.3 renames `registered_domain` to `top_domain_under_public_suffix`.
+    "tldextract>=5.3",
     "python-dotenv>=1.0",
     # Transformation / storage
     "pandas>=2.2",
@@ -97,10 +98,10 @@ line-ending = "lf"
 minversion = "8.0"
 addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
-filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::FutureWarning",
-]
+# Warnings are errors. Two blanket `ignore::` lines used to hide every
+# DeprecationWarning and FutureWarning; the first run without them found a deprecated
+# tldextract property being called on every transformed record. No exemption is needed.
+filterwarnings = ["error"]
 
 [tool.coverage.run]
 source = ["src/multimodal_etl"]
