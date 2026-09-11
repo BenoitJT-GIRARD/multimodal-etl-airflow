@@ -4,10 +4,10 @@ A pipeline that collects text-and-image publications from four live sources, cle
 into a typed dataset, loads them into a relational database, and reports on what the
 dataset is worth. Orchestrated by Apache Airflow.
 
-**Project status** — finished, and archived in a runnable state. The CI is frozen to manual
-trigger so that nothing here decays into a red badge on a project nobody maintains. The
-pipeline still runs today, against live sources, with one command — and because the sources
-are live, the same command tomorrow returns different numbers.
+**Project status** — finished, and archived in a runnable state. The pipeline still runs
+today, against live sources, with one command — and because the sources are live, the same
+command tomorrow returns different numbers than the ones published here. Continuous
+integration runs on push and on pull requests, and touches no source.
 
 ## The problem
 
@@ -127,7 +127,7 @@ TypeError: run_load() takes from 0 to 1 positional arguments but 2 were given
 ```
 
 **The third task of the Airflow DAG could not complete**, and no test covered that path —
-the 82 tests that existed exercised the modules in isolation, never the pipeline step that
+every test that existed exercised the modules in isolation, never the pipeline step that
 chains them. The database looked healthy because it had been filled before the shadowing
 was introduced. A populated database does not prove a pipeline works.
 

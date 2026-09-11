@@ -1,7 +1,6 @@
 name: CI
 
-# No `schedule` trigger: this repository is finished, and a nightly build that nobody
-# reads would burn minutes to turn red on its own one day.
+# No `schedule` trigger. The pipeline is launched by hand; CI only checks the code.
 on:
   push:
     branches: ["main", "feat/**"]
@@ -26,8 +25,7 @@ jobs:
       - name: Sync dependencies
         run: uv sync --frozen --extra dev
 
-      # Checks only. Nothing here rewrites the tree: a job that formats before it
-      # verifies always passes, and tells you nothing.
+      # Checks only, no rewriting: `ruff format` is a local hook, not a CI step.
       - name: Ruff
         run: uv run ruff check .
 
