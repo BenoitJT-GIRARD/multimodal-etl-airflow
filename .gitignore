@@ -47,7 +47,6 @@ data/interim/
 data/processed/
 data/db/
 *.parquet
-!data/samples/*.parquet
 *.sqlite
 *.db
 
