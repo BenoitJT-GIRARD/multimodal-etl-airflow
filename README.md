@@ -60,8 +60,6 @@ A Streamlit dashboard reads the run records and the alert thresholds.
 | Labelled with ground truth | 32 (26%) |
 | Total duration | 56.8 s |
 
-![The dataset the pipeline produces](docs/images/dataset_sample.png)
-
 ## What is proven
 
 **The load cannot duplicate a row.** Every table is declared with its primary key and the
