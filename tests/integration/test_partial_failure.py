@@ -1,8 +1,8 @@
 """The pipeline is built to survive a failing source. These tests check that it does.
 
 Nothing verified this before: the connectors were each wrapped in a `try/except`, which is
-an intention, and the audit called it out as a promise the repository made without keeping
-it. Every failure here is simulated — no test reaches the network.
+an intention and not a guarantee. Every failure here is simulated — no test reaches the
+network.
 """
 
 from __future__ import annotations

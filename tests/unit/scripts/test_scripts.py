@@ -72,7 +72,9 @@ def test_the_report_is_rendered_from_the_tracked_measures(monkeypatch, tmp_path)
     assert quality_report.main([]) == 0
     written = target.read_text(encoding="utf-8")
     assert measures["measured_on"] in written
-    assert f"{measures['kept']} publications kept out of {measures['collected']} collected" in written
+    assert (
+        f"n = {measures['collected']} publications collected, {measures['kept']} were kept"
+    ) in written
 
 
 def test_publishing_without_measures_says_which_command_is_missing(monkeypatch, tmp_path) -> None:

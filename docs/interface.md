@@ -65,8 +65,8 @@ axis, and each axis is labelled with what it carries.
 
 ## The theme is the repository's, not Streamlit's
 
-`.streamlit/config.toml` carries the figures' colours, and `tests/unit/test_theme.py`
-checks them against `multimodal_etl.figure_style`, which is the copy the charts read. Without
+`.streamlit/config.toml` carries the page's colours, and `tests/unit/test_theme.py`
+checks them against `multimodal_etl.figure_style`, which is what the charts read. Without
 that file the page ships Streamlit's factory red on its buttons next to charts drawn in blue
 and amber, and the editor toolbar, `Deploy` and the three-dot menu, appears in every
 screenshot.

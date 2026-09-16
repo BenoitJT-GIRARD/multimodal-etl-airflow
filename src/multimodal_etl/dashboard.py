@@ -5,7 +5,7 @@ A Streamlit application showing what the last run produced and whether it is wit
 and ``docs/interface.md`` sets out the three rules that follow from that. The shortest of them:
 no status is carried by colour alone, so the word is in the cell.
 
-Colours come from :mod:`multimodal_etl.figure_style`, which is the figures' palette; the
+Colours come from :mod:`multimodal_etl.figure_style`, the same module the figures use; the
 Streamlit theme itself lives in ``.streamlit/config.toml``. Nothing here writes a colour.
 
 Launch with:
@@ -55,7 +55,7 @@ CAUSE_COLOURS = {
 }
 
 #: Plotly inherits nothing from the Streamlit theme: a chart left alone comes out in the
-#: library's own ten colours, next to a page painted in the figures' palette.
+#: library's own ten colours, next to a page painted in this project's.
 LAYOUT = {
     "paper_bgcolor": PALETTE["paper"],
     "plot_bgcolor": PALETTE["paper"],

@@ -1,7 +1,7 @@
 """Measure what the deduplication key lets through.
 
 The publication identifier hashes the **exact** URL and the **exact** title. On a news
-feed — which is the use case — that is fragile in two ways the audit called out:
+feed — which is the use case — that is fragile in two ways:
 
 * a title corrected by one character, a typo fixed or an editorial suffix added, produces a
   different identifier for the same article;

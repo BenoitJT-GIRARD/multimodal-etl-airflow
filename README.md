@@ -74,8 +74,8 @@ indexes without an image, and **Pillow** opening every downloaded file before th
 loads it into SQLite locally or **PostgreSQL** in a deployment: six tables, given field by
 field in [`docs/DB.md`](docs/DB.md), whose primary keys are what makes a replay idempotent.
 
-The dashboard is **Streamlit** and **Plotly**, painted from the figures' own palette and not
-from either library's defaults. Around all of it: **uv** for a locked environment, **Ruff** and
+The dashboard is **Streamlit** and **Plotly**, painted from the same colours as the figures
+and not from either library's defaults. Around all of it: **uv** for a locked environment, **Ruff** and
 **Bandit** on every push, and a **pytest** suite in three tiers whose outermost one starts the
 pipeline as a subprocess against an RSS feed it serves itself, then starts the dashboard with
 the command quoted below and asks it for a page.
