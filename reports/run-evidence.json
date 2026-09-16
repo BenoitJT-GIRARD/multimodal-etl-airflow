@@ -1,0 +1,22 @@
+{
+  "command": "uv run python scripts/smoke.py",
+  "ran_at": "2026-09-15",
+  "git_revision": "260072f0e8212e11bea11cceb5f0a40a0ba1c7f4",
+  "tool_versions": {
+    "python": "3.12.12",
+    "pandas": "3.0.5",
+    "pyarrow": "24.0.0",
+    "sqlalchemy": "2.0.51",
+    "feedparser": "6.0.12",
+    "pillow": "12.2.0",
+    "requests": "2.34.2",
+    "uv": "uv 0.11.6 (65950801c 2026-04-09 x86_64-pc-windows-msvc)",
+    "docker": "Docker version 29.2.0, build 0b9d198"
+  },
+  "duration_seconds": 8.4,
+  "key_output": [
+    "docs/data_schema.mmd",
+    "reports/data_quality.md"
+  ],
+  "workflow_run_url": null
+}
