@@ -44,7 +44,11 @@ dev = [
     "ipykernel>=6.29",
     "jupyter>=1.1",
     "nbconvert>=7.16",
+    "nbclient>=0.10",
     "matplotlib>=3.11.1",
+    # The dashboard is a websocket page: Chrome headless photographs its empty skeleton, so
+    # the captures go through a browser that waits for a selector.
+    "playwright>=1.48",
 ]
 
 [build-system]
@@ -57,7 +61,7 @@ packages = ["src/multimodal_etl"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["data", "reports", "infos", "notebooks/.ipynb_checkpoints"]
+extend-exclude = ["data", "reports", "var", "notebooks/.ipynb_checkpoints"]
 
 [tool.ruff.lint]
 select = [
@@ -73,18 +77,16 @@ select = [
     "RUF", # ruff-native rules
 ]
 ignore = [
-    "E501",   # line length handled by the formatter
-    "RUF001", # ambiguous unicode (texte francais volontaire)
-    "RUF002", # ambiguous unicode dans les docstrings
-    "RUF003", # ambiguous unicode dans les commentaires
+    "E501",  # line length handled by the formatter
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
-"scripts/*" = ["T201", "E402"]
+"scripts/*" = ["T201"]
 "dags/*" = ["E402"]
-# In a notebook the first cell adds src/ to the import path, so the imports that follow
-# come after code, and are spread across several cells.
+# A notebook spreads its imports across cells: the first one bootstraps the environment, and
+# the ones that follow sit next to the code that uses them, which is what makes a notebook
+# readable top to bottom.
 "notebooks/**/*.ipynb" = ["E402", "F401", "I001"]
 
 [tool.ruff.format]
@@ -94,25 +96,59 @@ line-ending = "lf"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
+# `scripts/` is on the path so the unit tier can import a script and test the function it
+# holds, instead of shelling out to it and asserting on printed text.
+pythonpath = ["scripts"]
+addopts = "-ra --strict-markers --cov --cov-branch --cov-report=term-missing --cov-report=xml"
+markers = [
+    "integration: two real components of the repository wired together, or one against a real external dependency",
+    "system: the product started the way the README says to start it, questioned through its public surface",
+    "claim: fails when a published number, figure, table or artefact stops matching the code",
+    "simulation: replays a complete scenario on frozen data, with no real service",
+    "slow: takes long enough that a reader deserves to be told before running it",
+]
 # Warnings are errors. Two blanket `ignore::` lines used to hide every
 # DeprecationWarning and FutureWarning; the first run without them found a deprecated
 # tldextract property being called on every transformed record. No exemption is needed.
 filterwarnings = ["error"]
 
 [tool.coverage.run]
-source = ["src/multimodal_etl"]
+# Three directories carry tracked Python, and all three are measured. `src/` alone left the
+# five scripts a reader is told to run, and the DAG, outside the number the badge publishes.
+source = ["src/multimodal_etl", "scripts", "dags"]
 branch = true
+data_file = "var/.coverage"
+omit = [
+    # Copied-in modules, tested at their source: counting them here would measure someone
+    # else's tests.
+    "*/figure_style.py",
+    "*/utils/paths.py",
+    "scripts/capture.py",
+    "scripts/smoke.py",
+    "scripts/run_notebooks.py",
+]
 
 [tool.coverage.report]
 show_missing = true
+skip_covered = true
+# The floor is the rate measured the day the suite was completed, rounded down. A floor
+# below the current rate is not a floor: it lets the next commit lose coverage in silence.
+fail_under = 76
 exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
 ]
 
+[tool.coverage.xml]
+# Tracked: a published result a reader can open, and what the coverage badge recomputes from.
+output = "reports/coverage/coverage.xml"
+
+[tool.coverage.html]
+# Not tracked: generated pages nobody reviews in a diff.
+directory = "var/coverage-html"
+
 [tool.bandit]
-exclude_dirs = ["tests", "data", "infos", "reports", ".venv"]
+exclude_dirs = ["tests", "data", "reports", "var", ".venv"]
 skips = ["B101"]

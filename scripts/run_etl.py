@@ -10,18 +10,17 @@ Usage:
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
 from dotenv import load_dotenv
 
+from multimodal_etl.utils.paths import ROOT_DIR as ROOT
+
+# The `.env` has to be loaded BEFORE the modules that read the environment are imported:
+# `config` resolves the data directory, the source list and the database URL at import time,
+# so an import above this line would freeze the defaults.
 load_dotenv(ROOT / ".env")
 
-from multimodal_etl.logging_setup import get_logger, setup_logging
-from multimodal_etl.pipeline import (
+from multimodal_etl.logging_setup import get_logger, setup_logging  # noqa: E402
+from multimodal_etl.pipeline import (  # noqa: E402
     run_cleanup,
     run_extract,
     run_load,

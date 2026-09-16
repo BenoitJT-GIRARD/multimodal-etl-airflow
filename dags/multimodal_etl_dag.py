@@ -4,23 +4,23 @@ The DAG runs Extract, Transform and Load, then consolidates the run metrics and 
 the working area. It **calls the package directly**: every ``PythonOperator`` invokes one
 step of :mod:`multimodal_etl.pipeline`, and no business logic is written here.
 
-**The tasks are independent.** Nothing travels through XCom: each step writes its result
-to ``data/interim/`` and the next one reads that file back. Any single task can therefore
-be replayed on its own ::
+**The tasks are independent.** Nothing travels through XCom; the hand-off is the working area
+:mod:`multimodal_etl.transit` describes, which is what lets any single task be replayed alone ::
 
-    airflow tasks test multimodal_etl transform 2026-08-20
+    airflow tasks test multimodal_etl transform 2026-09-15
 
-If the working file is gone, the step falls back to the last archived artefact. The final
-``cleanup`` task empties the working area once its files have been consumed.
+``docs/runbook.md`` shows one being replayed after ``cleanup`` had emptied that area.
 
-Running it locally: see ``docs/airflow_runbook.md``.
+The package is importable because the compose file puts the mounted source tree on
+``PYTHONPATH``. A ``sys.path`` insert here would do the same thing and hide where the decision
+was taken; the environment variable is next to the mount that makes it true.
+
+Running it locally: see ``docs/runbook.md``.
 """
 
 from __future__ import annotations
 
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 
 from airflow import DAG
 
@@ -29,11 +29,6 @@ try:
     from airflow.operators.python import PythonOperator
 except ImportError:  # pragma: no cover - Airflow 3.x
     from airflow.providers.standard.operators.python import PythonOperator
-
-# Make the package importable from inside the container, where Docker mounts src.
-PROJECT_SRC = Path("/opt/airflow/project/src")
-if PROJECT_SRC.exists() and str(PROJECT_SRC) not in sys.path:
-    sys.path.insert(0, str(PROJECT_SRC))
 
 from multimodal_etl.pipeline import (
     run_cleanup,

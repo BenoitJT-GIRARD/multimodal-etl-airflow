@@ -1,0 +1,101 @@
+{
+  "schema": "image-manifest/1",
+  "images": {
+    "airflow_graph.png": {
+      "sha256": "ea80f105e4d96d39966960a2132b1430334fda937bdaff0a5b75422605f4b47f",
+      "written": "2026-09-15",
+      "source": "scripts/capture.py",
+      "command": "uv run python scripts/capture.py --only airflow_graph",
+      "target": "http://127.0.0.1:8080/dags/multimodal_etl/graph",
+      "viewport": [
+        1280,
+        1000
+      ],
+      "device_scale_factor": 2,
+      "app_state": "a local Airflow 2.10.4 on the LocalExecutor with a PostgreSQL metadata database, the image built from infra/Dockerfile, after `airflow dags test multimodal_etl 2026-09-15` ran the five tasks against the four live sources",
+      "data_source": "the four live sources, read at run time; the picture shows task names and outcomes, and no publication",
+      "demonstrates_behaviour": "the five tasks chain and every one of them ends green, which is what the DAG is for: the same functions the scripts call, run under an orchestrator that can retry one of them without replaying the others",
+      "git_revision": "d76fe19438b0e0c950eeffbabe505a10380a334e",
+      "depends_on": [
+        "dags/multimodal_etl_dag.py",
+        "infra/docker-compose.airflow.yaml"
+      ]
+    },
+    "dashboard-history.png": {
+      "sha256": "0432f865b517f9d0c7ac41b26ddb749166e232382ae4045c45fda7c742d8aa0a",
+      "written": "2026-09-15",
+      "source": "scripts/capture.py",
+      "command": "uv run python scripts/capture.py --only dashboard-history",
+      "target": "http://127.0.0.1:8599/",
+      "viewport": [
+        1280,
+        1000
+      ],
+      "device_scale_factor": 2,
+      "app_state": "the dashboard started against a corpus this repository owns: two runs of the pipeline on the versioned Fakeddit sample, NewsData.io left without a key so it turns itself off, the RSS connector pointed at a port where nothing listens, and FakeNewsNet not selected",
+      "data_source": "data/samples/fakeddit_sample.tsv — twenty-four invented rows with the real column structure, and freely-licensed illustrations; no publisher's content is on screen",
+      "demonstrates_behaviour": "the second run collected as much as the first and added nothing to the database, and the validity rate is drawn against its own axis rather than flattened onto the one the duration in seconds needs",
+      "git_revision": "d76fe19438b0e0c950eeffbabe505a10380a334e",
+      "paired_with": "dashboard-status.png",
+      "depends_on": [
+        "src/multimodal_etl/dashboard.py",
+        "src/multimodal_etl/load.py"
+      ]
+    },
+    "dashboard-sources.png": {
+      "sha256": "0ece1085e04437935f3cf2653d29f72fcb892f24ee6a26a38a92e93323d3cc15",
+      "written": "2026-09-15",
+      "source": "scripts/capture.py",
+      "command": "uv run python scripts/capture.py --only dashboard-sources",
+      "target": "http://127.0.0.1:8599/",
+      "viewport": [
+        1280,
+        1000
+      ],
+      "device_scale_factor": 2,
+      "app_state": "the dashboard started against a corpus this repository owns: two runs of the pipeline on the versioned Fakeddit sample, NewsData.io left without a key so it turns itself off, the RSS connector pointed at a port where nothing listens, and FakeNewsNet not selected",
+      "data_source": "data/samples/fakeddit_sample.tsv — twenty-four invented rows with the real column structure, and freely-licensed illustrations; no publisher's content is on screen",
+      "demonstrates_behaviour": "three sources, three outcomes and one incident count of zero: the one that delivered, the one turned off for want of an API key, and the one that answered with nothing. Neither of the last two is an outage, and a dashboard that counted them as one would sit amber for ever",
+      "git_revision": "d76fe19438b0e0c950eeffbabe505a10380a334e",
+      "depends_on": [
+        "src/multimodal_etl/dashboard.py",
+        "src/multimodal_etl/extract.py"
+      ]
+    },
+    "dashboard-status.png": {
+      "sha256": "47875085624c677ca386c1965c4a6fdede0d4c8a13b5d6c7af7db23dba660d33",
+      "written": "2026-09-15",
+      "source": "scripts/capture.py",
+      "command": "uv run python scripts/capture.py --only dashboard-status",
+      "target": "http://127.0.0.1:8599/",
+      "viewport": [
+        1280,
+        1000
+      ],
+      "device_scale_factor": 2,
+      "app_state": "the dashboard started against a corpus this repository owns: two runs of the pipeline on the versioned Fakeddit sample, NewsData.io left without a key so it turns itself off, the RSS connector pointed at a port where nothing listens, and FakeNewsNet not selected",
+      "data_source": "data/samples/fakeddit_sample.tsv — twenty-four invented rows with the real column structure, and freely-licensed illustrations; no publisher's content is on screen",
+      "demonstrates_behaviour": "every indicator is read against the bound docs/protocol.md sets for it, with the unit it is measured in and the word for its status, so the page can be read by someone who cannot tell the three colours apart",
+      "git_revision": "d76fe19438b0e0c950eeffbabe505a10380a334e",
+      "depends_on": [
+        "src/multimodal_etl/dashboard.py",
+        "src/multimodal_etl/kpi.py"
+      ]
+    },
+    "data_schema.png": {
+      "sha256": "49370592361b4e5fbe189e7944fcce4a0ba7c18a05c4faad4da4838864241951",
+      "written": "2026-09-15",
+      "source": "scripts/build_schema_diagram.py",
+      "command": "uv run python scripts/build_schema_diagram.py",
+      "rendered_from": "docs/data_schema.mmd",
+      "renderer": "mermaid-cli, white background, neutral theme",
+      "demonstrates_behaviour": "the entities, their cardinalities and the role of every field are drawn from multimodal_etl.schema, so a field added to the code appears in this picture without anyone editing it",
+      "data_source": "none: the diagram is generated from the schema module",
+      "git_revision": "d76fe19438b0e0c950eeffbabe505a10380a334e",
+      "depends_on": [
+        "src/multimodal_etl/schema.py",
+        "scripts/build_schema_diagram.py"
+      ]
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "schema": "run-indicators/1",
+  "measured_on": "2026-09-15",
+  "orchestrator": "airflow",
+  "indicators": [
+    {
+      "indicator": "validity_rate_pct",
+      "label": "Validity rate",
+      "value": 74.3,
+      "unit": "%",
+      "healthy_when": "≥ 60 %",
+      "status": "green"
+    },
+    {
+      "indicator": "text_image_pairing_pct",
+      "label": "Text-image pairing",
+      "value": 100.0,
+      "unit": "%",
+      "healthy_when": "≥ 90 %",
+      "status": "green"
+    },
+    {
+      "indicator": "duplicate_rate_pct",
+      "label": "Duplicate rate",
+      "value": 0.0,
+      "unit": "%",
+      "healthy_when": "≤ 5 %",
+      "status": "green"
+    },
+    {
+      "indicator": "publications",
+      "label": "Volume ingested",
+      "value": 127.0,
+      "unit": "publications",
+      "healthy_when": "≥ 80 publications",
+      "status": "green"
+    },
+    {
+      "indicator": "dominant_source_share_pct",
+      "label": "Share of the dominant source",
+      "value": 35.4,
+      "unit": "%",
+      "healthy_when": "≤ 50 %",
+      "status": "green"
+    },
+    {
+      "indicator": "median_age_hours",
+      "label": "Median age",
+      "value": 20.0,
+      "unit": "h",
+      "healthy_when": "≤ 48 h",
+      "status": "green"
+    },
+    {
+      "indicator": "total_duration_sec",
+      "label": "Total duration",
+      "value": 66.41,
+      "unit": "s",
+      "healthy_when": "≤ 90 s",
+      "status": "green"
+    },
+    {
+      "indicator": "images_downloaded_pct",
+      "label": "Images downloaded",
+      "value": 94.9,
+      "unit": "%",
+      "healthy_when": "≥ 80 %",
+      "status": "green"
+    },
+    {
+      "indicator": "failed_sources",
+      "label": "Failed sources",
+      "value": 0.0,
+      "unit": "sources",
+      "healthy_when": "≤ 0 sources",
+      "status": "green"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+# The Streamlit theme of this dashboard.
+#
+# Without this file the page ships Streamlit's factory red on its buttons, sliders and
+# toggles, next to charts drawn in the figures' own blue and amber. Every value below is a
+# token of the shared palette, and tests/unit/test_theme.py checks it against the module
+# the figures read, so a colour is still decided in exactly one place.
+
+[theme]
+# The brand anchor, and not the amber. Amber is a SERIES colour in the figures: using it as
+# the action colour would put the same hue on a button and on a curve of the same page, where
+# it would no longer mean anything.
+primaryColor = "#123F5A"
+
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F3F5F6"
+textColor = "#1B1F23"
+font = "sans serif"
+
+[client]
+# The editor toolbar — "Deploy", the three-dot menu — is not part of the product, and it was
+# in every published screenshot of this dashboard.
+toolbarMode = "minimal"
+showErrorDetails = true
+
+[server]
+# This dashboard reads versioned artefacts. It has nothing to upload.
+enableXsrfProtection = true
+maxUploadSize = 1
+
+[browser]
+gatherUsageStats = false

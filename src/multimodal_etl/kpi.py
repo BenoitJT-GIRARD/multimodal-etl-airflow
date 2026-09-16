@@ -5,7 +5,7 @@ what the use case actually makes critical: how many images are really available,
 the dataset is, how diverse its sources are, and what each run genuinely adds.
 
 Every indicator is here because it triggers an action when it drifts; the dashboard
-displays them and the monitoring plan sets the thresholds. Those thresholds are defined
+displays them and `docs/protocol.md` sets the thresholds. Those thresholds are defined
 **once**, here, in :data:`THRESHOLDS`: the document and the application therefore cannot
 contradict each other.
 
@@ -26,13 +26,25 @@ from multimodal_etl.config import PROCESSED_DIR, RUNS_DIR
 
 
 class Threshold(NamedTuple):
-    """Alert threshold of an indicator, as defined in the monitoring plan."""
+    """Alert threshold of an indicator, as defined in the protocol."""
 
     label: str
+    #: What the number counts. A threshold printed as "≤ 48" leaves the reader to guess
+    #: between hours, days and publications, and the dashboard printed exactly that.
+    unit: str
     direction: str  # "higher_is_better", or "lower_is_better" for the other way round
     green: float
     amber: float
     justification: str
+
+    def bound(self) -> str:
+        """The green bound, with its unit: « ≥ 60 % », « ≤ 48 h »."""
+        sign = "≥" if self.direction == "higher_is_better" else "≤"
+        return f"{sign} {self.green:g} {self.unit}".rstrip()
+
+    def reading(self, value: float) -> str:
+        """One measured value, with its unit."""
+        return f"{value:g} {self.unit}".rstrip()
 
 
 # Alert thresholds — the single source of truth, shared by the dashboard and the
@@ -40,6 +52,7 @@ class Threshold(NamedTuple):
 THRESHOLDS: dict[str, Threshold] = {
     "validity_rate_pct": Threshold(
         "Validity rate",
+        "%",
         "higher_is_better",
         60,
         45,
@@ -49,6 +62,7 @@ THRESHOLDS: dict[str, Threshold] = {
     ),
     "text_image_pairing_pct": Threshold(
         "Text-image pairing",
+        "%",
         "higher_is_better",
         90,
         75,
@@ -56,6 +70,7 @@ THRESHOLDS: dict[str, Threshold] = {
     ),
     "images_downloaded_pct": Threshold(
         "Images downloaded",
+        "%",
         "higher_is_better",
         80,
         60,
@@ -63,6 +78,7 @@ THRESHOLDS: dict[str, Threshold] = {
     ),
     "duplicate_rate_pct": Threshold(
         "Duplicate rate",
+        "%",
         "lower_is_better",
         5,
         15,
@@ -70,6 +86,7 @@ THRESHOLDS: dict[str, Threshold] = {
     ),
     "dominant_source_share_pct": Threshold(
         "Share of the dominant source",
+        "%",
         "lower_is_better",
         50,
         70,
@@ -77,6 +94,7 @@ THRESHOLDS: dict[str, Threshold] = {
     ),
     "median_age_hours": Threshold(
         "Median age",
+        "h",
         "lower_is_better",
         48,
         168,
@@ -84,6 +102,7 @@ THRESHOLDS: dict[str, Threshold] = {
     ),
     "publications": Threshold(
         "Volume ingested",
+        "publications",
         "higher_is_better",
         80,
         40,
@@ -91,6 +110,7 @@ THRESHOLDS: dict[str, Threshold] = {
     ),
     "total_duration_sec": Threshold(
         "Total duration",
+        "s",
         "lower_is_better",
         90,
         300,
@@ -98,6 +118,7 @@ THRESHOLDS: dict[str, Threshold] = {
     ),
     "failed_sources": Threshold(
         "Failed sources",
+        "sources",
         "lower_is_better",
         0,
         1,
@@ -256,13 +277,11 @@ def evaluate_thresholds(kpis: dict[str, object]) -> list[dict[str, object]]:
         {
             "indicator": name,
             "label": THRESHOLDS[name].label,
+            "unit": THRESHOLDS[name].unit,
             "value": value,
+            "reading": THRESHOLDS[name].reading(value),
             "status": status_for(name, value),
-            "expected": (
-                f"≥ {THRESHOLDS[name].green:g}"
-                if THRESHOLDS[name].direction == "higher_is_better"
-                else f"≤ {THRESHOLDS[name].green:g}"
-            ),
+            "expected": THRESHOLDS[name].bound(),
             "justification": THRESHOLDS[name].justification,
         }
         for name, value in values.items()

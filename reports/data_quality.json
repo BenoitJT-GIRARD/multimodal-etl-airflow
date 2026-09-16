@@ -1,0 +1,102 @@
+{
+  "schema": "data-quality/1",
+  "measured_on": "2026-09-15",
+  "collected": 171,
+  "kept": 127,
+  "with_image_pct": 100.0,
+  "labelled_pct": 22.0,
+  "completeness": [
+    {
+      "field": "title",
+      "filled": 127,
+      "filled_pct": 100.0
+    },
+    {
+      "field": "text",
+      "filled": 127,
+      "filled_pct": 100.0
+    },
+    {
+      "field": "image_path",
+      "filled": 127,
+      "filled_pct": 100.0
+    },
+    {
+      "field": "image_url",
+      "filled": 127,
+      "filled_pct": 100.0
+    },
+    {
+      "field": "label",
+      "filled": 28,
+      "filled_pct": 22.0
+    },
+    {
+      "field": "label_source",
+      "filled": 28,
+      "filled_pct": 22.0
+    },
+    {
+      "field": "published_at",
+      "filled": 119,
+      "filled_pct": 93.7
+    },
+    {
+      "field": "domain",
+      "filled": 127,
+      "filled_pct": 100.0
+    },
+    {
+      "field": "language",
+      "filled": 127,
+      "filled_pct": 100.0
+    }
+  ],
+  "by_source": [
+    {
+      "source": "rss:the_guardian",
+      "publications": 45,
+      "with_image": 45,
+      "labelled": 0,
+      "mean_text_length": 697
+    },
+    {
+      "source": "rss:bbc_news",
+      "publications": 29,
+      "with_image": 29,
+      "labelled": 0,
+      "mean_text_length": 118
+    },
+    {
+      "source": "rss:abc_news",
+      "publications": 25,
+      "with_image": 25,
+      "labelled": 0,
+      "mean_text_length": 128
+    },
+    {
+      "source": "fakeddit",
+      "publications": 20,
+      "with_image": 20,
+      "labelled": 20,
+      "mean_text_length": 56
+    },
+    {
+      "source": "fakenewsnet:gossipcop",
+      "publications": 8,
+      "with_image": 8,
+      "labelled": 8,
+      "mean_text_length": 57
+    }
+  ],
+  "labelled_subset": {
+    "labelled": 28,
+    "labelled_mean_text": 56.1,
+    "unlabelled_mean_text": 383.5
+  },
+  "duplicates": {
+    "publications": 127,
+    "missed_pairs_url_and_title": 0,
+    "missed_pairs_title_only": 0
+  }
+}

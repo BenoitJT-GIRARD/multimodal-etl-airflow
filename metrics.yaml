@@ -1,0 +1,181 @@
+# What this repository's published numbers mean.
+#
+# Every numeric column of every published table, and every indicator the dashboard shows, is a
+# key here. A label alone — « validity rate », « median age » — leaves the reader to guess what
+# was measured, over what, and whether larger is better. The unit lives here rather than inside
+# a variable name, so the dashboard, the README, `docs/protocol.md` and the report read the
+# same definition instead of each spelling out its own.
+#
+# The nine indicators mirror `THRESHOLDS` in src/multimodal_etl/kpi.py, which is where the
+# bounds are decided; `tests/integration/test_documentation.py` fails if one of them arrives
+# there without arriving here.
+#
+# A word on `uncertainty`, which is the same for every entry and says something worth saying
+# once: these are counts over one complete run, not estimates over a sample. There is no
+# sampling error to report. What varies is the corpus itself, because the four sources are
+# live, and the honest statement of spread is the run-to-run history the dashboard draws.
+
+metrics:
+
+  validity_rate:
+    definition: >-
+      The share of the publications collected by the sources that survive cleaning and
+      validation, and therefore enter the dataset.
+    unit: "%"
+    direction: higher_is_better
+    anchor: "74.3 — reports/indicators.json#validity_rate_pct"
+    business_reading: >-
+      Three publications in four are usable. The fourth is thrown away almost always for one
+      reason: its image could not be fetched, so the pair a multimodal model needs does not
+      exist.
+    source: "src/multimodal_etl/kpi.py, from the statistics the transform step writes"
+    uncertainty: >-
+      A count over one complete run, with no sampling. It moves with the corpus: the
+      FakeNewsNet URLs date from 2016-2018 and a growing share of them stop answering.
+
+  text_image_pairing:
+    definition: >-
+      The share of the kept publications whose image file is present on disk, opened and
+      decoded, and not merely announced by a URL.
+    unit: "%"
+    direction: higher_is_better
+    anchor: "100.0 — reports/data_quality.json#with_image_pct"
+    business_reading: >-
+      Every row of the dataset really does carry a text and a picture. A model trained on it
+      never meets a missing image, which is the one thing this pipeline exists to guarantee.
+    source: "src/multimodal_etl/kpi.py, from the has_image column of the exported dataset"
+    uncertainty: >-
+      A count over one complete run. It is 100 by construction while `require_image` is on:
+      a value below it means the flag was turned off.
+
+  images_downloaded:
+    definition: >-
+      The share of the image URLs the sources announced that yielded a real, decodable file.
+    unit: "%"
+    direction: higher_is_better
+    anchor: "94.9 — reports/indicators.json#images_downloaded_pct"
+    business_reading: >-
+      Fifty-one image URLs in a thousand point at nothing. That is the cost of working from
+      links rather than from files, and it is why the files are fetched rather than referenced.
+    source: "src/multimodal_etl/kpi.py, from the image counters of the extraction step"
+    uncertainty: >-
+      A count over one complete run. It depends on the publishers' media servers on the day,
+      which is the variability the run history is there to show.
+
+  volume_ingested:
+    definition: "The number of clean publications the last run produced."
+    unit: "publications"
+    direction: higher_is_better
+    anchor: "127 — reports/data_quality.json#kept"
+    business_reading: >-
+      What one day of collection adds to the corpus. A collapse here is the first visible sign
+      that a source has gone silent, before any quality indicator moves.
+    source: "src/multimodal_etl/kpi.py, from the exported dataset"
+    uncertainty: >-
+      A count over one complete run. The three RSS feeds publish a rolling window, so a run an
+      hour later returns a largely overlapping set.
+
+  share_of_the_dominant_source:
+    definition: >-
+      The share of the dataset contributed by whichever single source contributed most.
+    unit: "%"
+    direction: lower_is_better
+    anchor: "35.4 — reports/indicators.json#dominant_source_share_pct"
+    business_reading: >-
+      A dataset captured by one publisher passes that publisher's editorial bias to the model
+      trained on it. Above seventy per cent from a single source, the corpus is that
+      publisher's, whatever its size.
+    source: "src/multimodal_etl/kpi.py, from the source column of the exported dataset"
+    uncertainty: >-
+      A count over one complete run. It rises mechanically when another source fails, which is
+      why it is read next to the failed-sources count rather than alone.
+
+  median_age:
+    definition: >-
+      The median age of the ingested publications at the moment of the run, computed from the
+      publication date the source declares.
+    unit: "h"
+    direction: lower_is_better
+    anchor: "20.0 — reports/indicators.json#median_age_hours"
+    business_reading: >-
+      Half the corpus is less than a day old. A fake-news detector has to see the stories in
+      circulation now; a corpus whose median age climbs into weeks is an archive.
+    source: "src/multimodal_etl/kpi.py, from the published_at column of the exported dataset"
+    uncertainty: >-
+      A median over one complete run, on the publications that carry a date — 93.7 % of them
+      on 2026-09-15. The undated rows are excluded rather than assumed recent.
+
+  duplicate_rate:
+    definition: >-
+      The share of the collected publications dropped at the transform step because their
+      identifier — the hash of the URL and the title — was already present.
+    unit: "%"
+    direction: lower_is_better
+    anchor: "0.0 — reports/indicators.json#duplicate_rate_pct"
+    business_reading: >-
+      Nothing is collected twice. A rate that climbs means either the same articles are being
+      re-ingested, or the identifier has stopped being stable.
+    source: "src/multimodal_etl/quality/duplicates.py, and the transform step's statistics"
+    uncertainty: >-
+      A count over one complete run. The measure is paired with a test that injects a
+      realistic republication, so a zero means « nothing there » and not « blind ».
+
+  total_duration:
+    definition: "The wall-clock time of the three steps that do work: extract, transform, load."
+    unit: "s"
+    direction: lower_is_better
+    anchor: "66.41 — reports/indicators.json#total_duration_sec"
+    business_reading: >-
+      A daily run finishes in under a minute, so the window it occupies is never the
+      constraint. Beyond five minutes it starts colliding with whatever runs after it.
+    source: "src/multimodal_etl/pipeline.py, which times each step and writes the run record"
+    uncertainty: >-
+      One measurement per run, dominated by the image downloads and therefore by the network.
+      The run history is where its spread is read.
+
+  failed_sources:
+    definition: >-
+      The number of connectors that ended on an incident — a spent quota, a network failure,
+      or an answer that could not be parsed. A source turned off for want of a key, or one
+      that answered with nothing, is not counted.
+    unit: "sources"
+    direction: lower_is_better
+    anchor: "0 — reports/indicators.json#failed_sources"
+    business_reading: >-
+      Nothing was broken on the day. One incident is a hiccup worth a look; two on the same day
+      is an outage, and the corpus that run produced should not feed a model.
+    source: "src/multimodal_etl/extract.py, which qualifies every silent source with a cause"
+    uncertainty: >-
+      A count over one complete run. The distinction between an incident and a configuration
+      choice is what the number means: without it, a pipeline with no API key reads as broken.
+
+  labelled_share:
+    definition: >-
+      The share of the kept publications that carry a ground-truth label, from FakeNewsNet or
+      Fakeddit.
+    unit: "%"
+    direction: higher_is_better
+    anchor: "22.0 — reports/data_quality.json#labelled_pct"
+    business_reading: >-
+      One row in five can be used for supervised training. The other four are usable for
+      pre-training or for evaluation by hand, and not for fitting a classifier.
+    source: "src/multimodal_etl/quality/report.py, from the label column of the exported dataset"
+    uncertainty: >-
+      A count over one complete run. It follows the share of the corpus that comes from the two
+      labelled datasets, and drops as the RSS feeds contribute more.
+
+  mean_text_length:
+    definition: >-
+      The mean number of characters of cleaned text per publication, after HTML has been
+      stripped.
+    unit: "characters"
+    direction: target
+    anchor: "56.1 labelled against 383.5 unlabelled — reports/data_quality.json#labelled_subset"
+    business_reading: >-
+      The rows that carry a label are seven times shorter than the rest, because the two
+      labelled datasets publish a headline and no article body. A model trained on the labelled
+      subset alone would be learning from headlines, and a raw count of rows hides that.
+    source: "src/multimodal_etl/quality/report.py, from the text_length column of the dataset"
+    uncertainty: >-
+      A mean over one complete run, with no interval: the two groups are not samples of a
+      population, they are the whole of what that run collected.

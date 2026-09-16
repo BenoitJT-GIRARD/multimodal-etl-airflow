@@ -11,17 +11,16 @@ Usage:
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
 
 from dotenv import load_dotenv
 
+from multimodal_etl.utils.paths import ROOT_DIR as ROOT
+
+# `.env` first, then the package: `scripts/run_etl.py` says why the order is not a style.
 load_dotenv(ROOT / ".env")
 
-from multimodal_etl.logging_setup import setup_logging
-from multimodal_etl.pipeline import run_load
+from multimodal_etl.logging_setup import setup_logging  # noqa: E402
+from multimodal_etl.pipeline import run_load  # noqa: E402
 
 
 def main() -> None:

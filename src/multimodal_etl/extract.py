@@ -48,7 +48,8 @@ OK, QUOTA, NETWORK, MALFORMED, EMPTY, DISABLED = (
 )
 INCIDENTS = frozenset({QUOTA, NETWORK, MALFORMED})
 
-# Sources that can turn themselves off: their silence is a configuration choice.
+# Connectors allowed to stand down: NewsData.io is the only one, and only when no API key is
+# supplied. Its silence is then a setting someone chose, and the tally says `disabled` for it.
 _OPTIONAL = {"newsdata": newsdata.is_enabled}
 
 
@@ -82,6 +83,9 @@ def collect_sources(
     tally: dict[str, dict[str, object]] = {}
 
     for name, connector in _CONNECTORS.items():
+        if name not in config.enabled_sources:
+            logger.info("Extract: source '%s' not in MULTIMODAL_ETL_SOURCES, skipped", name)
+            continue
         logger.info("Extract: starting source '%s'", name)
         try:
             collected = connector(config)

@@ -1,19 +1,25 @@
 """What fraction of the collected dataset is actually usable.
 
-The KPIs answer "is the pipeline healthy". This answers a different question, the one a
-team training a model downstream would ask first: **of the rows you collected, how many can
-I use, and for what?** A raw row count says nothing — a publication with no image is dead
-weight for a multimodal model, and one with no label is dead weight for supervised
-training.
+The KPIs answer "is the pipeline healthy". This answers the question a team about to train on
+the output asks first: **how much of what you collected is usable, and usable for what?** A row
+count alone settles nothing, since a publication with no image is dead weight for a multimodal
+model and one with no label is dead weight for supervised training.
 
-The report is written to ``reports/data_quality.md`` by ``scripts/quality_report.py``.
+Measuring and writing are two steps, and they are separate on purpose. The sources are live,
+so the corpus a run collects today is not the corpus of the run whose figures are published;
+:func:`measure` therefore writes its numbers to ``reports/data_quality.json``, and
+:func:`render` turns **that file** into ``reports/data_quality.md``. The published report is
+then reproducible byte for byte from a tracked file, without redistributing a single
+publisher's headline — the measures are counts, never content.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 
-# Fields worth reporting on: the ones a downstream consumer would filter by.
+#: Fields worth reporting on: the ones a downstream consumer would filter by.
 _REPORTED = (
     "title",
     "text",
@@ -25,6 +31,8 @@ _REPORTED = (
     "domain",
     "language",
 )
+
+SCHEMA = "data-quality/1"
 
 
 def _filled(series: pd.Series) -> int:
@@ -90,75 +98,104 @@ def _mean_text(frame: pd.DataFrame) -> float:
     return round(float(frame["text_length"].mean()), 1) if len(frame) else 0.0
 
 
-def _markdown(table: pd.DataFrame) -> str:
-    """Render a DataFrame as a markdown table, without pulling in a dependency."""
-    header = "| " + " | ".join(table.columns) + " |"
-    rule = "|" + "|".join("---" for _ in table.columns) + "|"
-    body = [
-        "| " + " | ".join(str(value) for value in row) + " |"
-        for row in table.itertuples(index=False)
-    ]
-    return "\n".join([header, rule, *body])
+# --- 1. Measuring: a dataset in, a record of numbers out --------------------
 
 
-def render_report(
+def measure(
     df: pd.DataFrame,
     stats: dict[str, int],
     duplicates: dict[str, int],
     by_title: dict[str, int] | None = None,
-) -> str:
-    """Build the whole report as markdown."""
-    if df.empty:
+    *,
+    measured_on: str,
+) -> dict[str, Any]:
+    """Every number the report carries, and nothing that could identify a publication."""
+    return {
+        "schema": SCHEMA,
+        "measured_on": measured_on,
+        "collected": int(stats.get("raw_total", 0)),
+        "kept": len(df),
+        "with_image_pct": round(100.0 * df["has_image"].sum() / len(df), 1) if len(df) else 0.0,
+        "labelled_pct": round(100.0 * _filled(df["label"]) / len(df), 1) if len(df) else 0.0,
+        "completeness": completeness(df).to_dict(orient="records"),
+        "by_source": by_source(df).to_dict(orient="records"),
+        "labelled_subset": labelled_versus_unlabelled(df),
+        "duplicates": {
+            "publications": int(duplicates.get("publications", 0)),
+            "missed_pairs_url_and_title": int(duplicates.get("missed_pairs", 0)),
+            "missed_pairs_title_only": int((by_title or {}).get("missed_pairs", 0)),
+        },
+    }
+
+
+# --- 2. Writing: the record in, the published markdown out ------------------
+
+
+def _markdown(rows: list[dict[str, Any]], columns: tuple[str, ...]) -> str:
+    """Render a list of records as a markdown table, without pulling in a dependency."""
+    header = "| " + " | ".join(columns) + " |"
+    rule = "|" + "|".join("---" for _ in columns) + "|"
+    body = [
+        "| " + " | ".join(str(row[column]) for column in columns) + " |"
+        for row in rows
+    ]
+    return "\n".join([header, rule, *body])
+
+
+def render(measures: dict[str, Any]) -> str:
+    """Build the whole report as markdown, from the measures and from nothing else."""
+    if not measures.get("kept"):
         return (
             "# Data quality report\n\n"
-            "There is no dataset to report on. Run `uv run python scripts/run_etl.py` "
-            "first.\n"
+            "Written by `scripts/quality_report.py` from `reports/data_quality.json`.\n\n"
+            "There is no dataset to report on. Run `uv run python scripts/run_etl.py` then "
+            "`uv run python scripts/quality_report.py --measure`.\n"
         )
 
-    usable_pct = round(100.0 * int(df["has_image"].sum()) / len(df), 1)
-    labelled_pct = round(100.0 * _filled(df["label"]) / len(df), 1)
-
+    duplicates = measures["duplicates"]
     return f"""# Data quality report
 
-Generated from the most recent dataset, by `scripts/quality_report.py`.
+Written by `scripts/quality_report.py` from `reports/data_quality.json`, measured on
+{measures["measured_on"]}. The sources are live: the numbers below describe the corpus of that
+run, and a run today collects a different one.
 
-{len(df)} publications kept out of {stats.get("raw_total", "?")} collected.
-**{usable_pct}%** carry an image on disk — the multimodal requirement — and
-**{labelled_pct}%** carry a ground-truth label.
+Of n = {measures["collected"]} publications collected, {measures["kept"]} were kept. Of those,
+**{measures["with_image_pct"]}%** carry an image file on disk, which is the multimodal
+requirement, and **{measures["labelled_pct"]}%** carry a ground-truth label.
 
 ## Completeness
 
 How many rows carry a real value for each field. An empty string counts as missing.
 
-{_markdown(completeness(df))}
+{_markdown(measures["completeness"], ("field", "filled", "filled_pct"))}
 
 ## By source
 
 What each source contributes, not merely how much.
 
-{_markdown(by_source(df))}
+{_markdown(measures["by_source"], ("source", "publications", "with_image", "labelled", "mean_text_length"))}
 
 ### What the labelled subset really looks like
 
-{_label_note(df)}
+{_label_note(measures["labelled_subset"])}
 
 ## Duplicates
 
 Publications the current identifier treats as distinct although their normalised URL and
-title match. Measured, not assumed — see `multimodal_etl.quality.duplicates`.
+title match, over n = {duplicates["publications"]} publications. Measured, not assumed: the
+code is `multimodal_etl.quality.duplicates`.
 
 | Measure | Pairs missed | What it would catch |
 |---|---|---|
-| Same normalised URL **and** title | {duplicates.get("missed_pairs", 0)} | one article reached twice through variant URLs |
-| Same normalised title, any URL | {(by_title or {}).get("missed_pairs", 0)} | one wire story republished by two outlets |
+| Same normalised URL **and** title | {duplicates["missed_pairs_url_and_title"]} | one article reached twice through variant URLs |
+| Same normalised title, any URL | {duplicates["missed_pairs_title_only"]} | one wire story republished by two outlets |
 
-Measured on {duplicates.get("publications", 0)} publications.
+Measured on {duplicates["publications"]} publications.
 """
 
 
-def _label_note(df: pd.DataFrame) -> str:
+def _label_note(split: dict[str, float]) -> str:
     """One sentence on how the labelled rows differ from the rest."""
-    split = labelled_versus_unlabelled(df)
     if not split["labelled"]:
         return "No publication carries a ground-truth label in this dataset."
     return (

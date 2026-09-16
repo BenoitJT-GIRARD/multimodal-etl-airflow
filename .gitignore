@@ -1,75 +1,46 @@
-﻿# --- Python ---
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-dist/
-*.egg-info/
-.eggs/
-*.egg
+# What this repository does not track.
+#
+# No line begins with `!`: an exception means the previous line ignored something that had to
+# be kept, which is an arbitration a `.gitignore` is not allowed to make.
 
-# --- uv / virtualenv ---
-.venv/
-venv/
-env/
-.env
-.env.*
-!.env.example
+# Everything a run writes and no reader opens: logs, the coverage database and its HTML
+# report, scratch corpora built by the smoke and by the capture script.
+var/
 
-# --- IDE / OS ---
-.idea/
-.vscode/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# --- Notebooks ---
-.ipynb_checkpoints/
-*-checkpoint.ipynb
-
-# --- Caches & couverture ---
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.cache/
-.coverage
-.coverage.*
-htmlcov/
-coverage.xml
-
-# --- Donnees & artefacts ---
+# The corpus a run collects. It is content, not litter — the dashboard and a model downstream
+# read it — and it stays out of the repository for a different reason: the four sources are
+# live, each keeps its own terms, and none of them is redistributed here. What IS tracked
+# under data/ is the demonstration sample, which is synthetic and is an input.
 data/raw/
 data/interim/
 data/processed/
 data/db/
-*.parquet
-*.sqlite
-*.db
 
-# --- Logs ---
-*.log
-logs/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
 
-# --- Reports: only the generated reports are kept ---
-reports/*.zip
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
 
-# --- Airflow (runtime Docker) ---
-docker/airflow/logs/
-docker/airflow/plugins/
-docker/.env
-
-# --- Documentation source fournie ---
-infos/
-
-# --- Notes de travail personnelles ---
-/REPRISE.md
-/MEMO.md
-
-# --- Securite ---
+# Secrets. `.env.example` is tracked and is not matched by this line: it is `.env` exactly,
+# so keeping the example needs no exception.
+.env
+.streamlit/secrets.toml
+infra/.env
 secrets.toml
 *.pem
 *.key
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

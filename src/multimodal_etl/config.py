@@ -12,18 +12,40 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Project root = two levels above this file (src/multimodal_etl/config.py).
-PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
+from multimodal_etl.utils.paths import ROOT_DIR, VAR_DIR
 
-DATA_DIR: Path = PROJECT_ROOT / "data"
+# The root is FOUND, in one place, by `utils.paths`. Counting directories up from this file
+# works from a checkout and writes into site-packages from a wheel, and the Airflow container
+# mounts the project somewhere else again.
+PROJECT_ROOT: Path = ROOT_DIR
+
+def _env_path(name: str, default: Path) -> Path:
+    """Read a directory from the environment, resolved against the project root if relative."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    candidate = Path(raw).expanduser()
+    return candidate if candidate.is_absolute() else PROJECT_ROOT / candidate
+
+
+# Where a run reads and writes. The default is `data/` beside the code; the Airflow container
+# mounts something else, and a test that runs the pipeline for real needs a directory of its
+# own, away from the one the reader's own runs have filled.
+DATA_DIR: Path = _env_path("MULTIMODAL_ETL_DATA_DIR", PROJECT_ROOT / "data")
 RAW_DIR: Path = DATA_DIR / "raw"
 IMAGES_DIR: Path = RAW_DIR / "images"
 PROCESSED_DIR: Path = DATA_DIR / "processed"
 # One record per pipeline run: this is the history the dashboard reads.
 RUNS_DIR: Path = PROCESSED_DIR / "runs"
-SAMPLES_DIR: Path = DATA_DIR / "samples"
+# A committed INPUT, and not somewhere a run writes: the Fakeddit demonstration sample is
+# versioned with the code. Hanging it off DATA_DIR sent a run with MULTIMODAL_ETL_DATA_DIR
+# set looking for it in an empty directory, and the source reported nothing to collect.
+SAMPLES_DIR: Path = PROJECT_ROOT / "data" / "samples"
 DB_DIR: Path = DATA_DIR / "db"
-LOGS_DIR: Path = PROJECT_ROOT / "logs"
+# Under `var/`, the one root directory the vocabulary reserves for what a run leaves behind and
+# no reader is meant to open. A `logs/` at the root sat beside `src/` and `docs/` as if it were
+# something to read.
+LOGS_DIR: Path = VAR_DIR / "logs"
 
 # Working area: files handed from one Airflow task to the next. See transit.py.
 INTERIM_DIR: Path = DATA_DIR / "interim"
@@ -40,7 +62,7 @@ def relative_path(path: Path) -> str:
     try:
         return path.resolve().relative_to(PROJECT_ROOT).as_posix()
     except ValueError:
-        # Path outside the project: keep it as it is rather than lose it.
+        # Path outside the project: keep it as it is, and lose nothing.
         return path.as_posix()
 
 
@@ -61,6 +83,49 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+#: The four connectors, in the order :mod:`multimodal_etl.extract` runs them.
+SOURCE_NAMES: tuple[str, ...] = ("rss", "newsdata", "fakenewsnet", "kaggle_fakeddit")
+
+DEFAULT_RSS_FEEDS: tuple[tuple[str, str], ...] = (
+    ("the_guardian", "https://www.theguardian.com/world/rss"),
+    ("bbc_news", "https://feeds.bbci.co.uk/news/world/rss.xml"),
+    ("abc_news", "https://abcnews.go.com/abcnews/internationalheadlines"),
+)
+
+
+def _env_sources(name: str) -> tuple[str, ...]:
+    """Which connectors to run, as a comma-separated list. Empty means all four.
+
+    Replaying one source is a normal operation: a feed came back after an outage and the
+    other three have nothing to add. Doing it used to mean editing the connector table.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return SOURCE_NAMES
+    wanted = [piece.strip() for piece in raw.split(",") if piece.strip()]
+    unknown = [piece for piece in wanted if piece not in SOURCE_NAMES]
+    if unknown:
+        raise ValueError(
+            f"{name}: unknown source(s) {', '.join(unknown)}. "
+            f"Known sources: {', '.join(SOURCE_NAMES)}."
+        )
+    return tuple(wanted)
+
+
+def _env_feeds(name: str, default: tuple[tuple[str, str], ...]) -> tuple[tuple[str, str], ...]:
+    """Read `name=url,name=url` from the environment, falling back to the shipped feeds."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    feeds: list[tuple[str, str]] = []
+    for piece in raw.split(","):
+        label, separator, url = piece.partition("=")
+        if not separator or not url.strip():
+            raise ValueError(f"{name}: expected `label=url`, got {piece.strip()!r}.")
+        feeds.append((label.strip(), url.strip()))
+    return tuple(feeds)
+
+
 @dataclass(frozen=True)
 class ExtractionConfig:
     """Parameters of the extract step (E)."""
@@ -75,11 +140,14 @@ class ExtractionConfig:
     )
     # User-Agent header: the minimum courtesy owed to the servers being queried.
     user_agent: str = "Multimodal ETL-bot/0.1 (+https://github.com/multimodal_etl)"
+    # Which connectors run. All four by default; a comma-separated list replays a subset.
+    enabled_sources: tuple[str, ...] = field(
+        default_factory=lambda: _env_sources("MULTIMODAL_ETL_SOURCES")
+    )
     # Multimodal RSS feeds (title + summary + image) — official sources, no key needed.
-    rss_feeds: tuple[tuple[str, str], ...] = (
-        ("the_guardian", "https://www.theguardian.com/world/rss"),
-        ("bbc_news", "https://feeds.bbci.co.uk/news/world/rss.xml"),
-        ("abc_news", "https://abcnews.go.com/abcnews/internationalheadlines"),
+    # `MULTIMODAL_ETL_RSS_FEEDS=label=url,label=url` points the connector somewhere else.
+    rss_feeds: tuple[tuple[str, str], ...] = field(
+        default_factory=lambda: _env_feeds("MULTIMODAL_ETL_RSS_FEEDS", DEFAULT_RSS_FEEDS)
     )
     # NewsData.io API settings (the source turns on when a key is supplied).
     newsdata_endpoint: str = "https://newsdata.io/api/1/news"
@@ -154,12 +222,13 @@ class LoadConfig:
 
 def ensure_dirs() -> None:
     """Create the working directories if they do not exist yet."""
+    # SAMPLES_DIR is deliberately absent. Creating a directory is a decision to write in it,
+    # and the sample is read: if it is gone, the run has to break where it is expected.
     for directory in (
         RAW_DIR,
         IMAGES_DIR,
         PROCESSED_DIR,
         RUNS_DIR,
-        SAMPLES_DIR,
         DB_DIR,
         LOGS_DIR,
         INTERIM_DIR,

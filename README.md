@@ -1,29 +1,35 @@
-# Multimodal ETL
+<h1 align="center">Multimodal ETL</h1>
 
-A pipeline that collects text-and-image publications from four live sources, cleans them
-into a typed dataset, loads them into a relational database, and reports on what the
-dataset is worth. Orchestrated by Apache Airflow.
+<p align="center">Four live sources, one rule (no image on disk, no publication) and a pipeline whose every step replays alone</p>
 
-**Project status** — finished, and archived in a runnable state. The pipeline still runs
-today, against live sources, with one command — and because the sources are live, the same
-command tomorrow returns different numbers than the ones published here. Continuous
-integration runs on push and on pull requests, and touches no source.
+<p align="center">
+  <img src="docs/badges/python.svg" alt="Python 3.12">
+  <img src="docs/badges/stack.svg" alt="Built with Airflow · Plotly · PostgreSQL">
+  <img src="docs/badges/licence.svg" alt="License: MIT">
+  <img src="docs/badges/coverage.svg" alt="coverage 77%">
+</p>
+
+**Project status** — frozen, and still runnable. One command replays the whole chain against
+live feeds, which is also why tomorrow's numbers will not be the ones on this page: what a run
+reproduces is the pipeline, never the corpus. `reports/run-evidence.json` records the last time
+that was checked end to end. The workflows lint, scan and test on every push, and read no
+source.
 
 ## The problem
 
-A dataset for multimodal fake-news detection needs a text *and* an image for every row.
-Four sources will each give you one of those reliably and the other only sometimes: RSS
-feeds carry an image URL that may 404, FakeNewsNet publishes CSVs with no image at all,
-and an API can go quiet the moment its quota runs out.
+A dataset for multimodal fake-news detection needs a text *and* an image for every row. Four
+sources will each give you one of those reliably and the other only sometimes: RSS feeds carry
+an image URL that may 404, FakeNewsNet publishes CSVs with no image at all, and an API can go
+quiet the moment its quota runs out.
 
-The tempting shortcut is to keep the row and record the URL. It produces a dataset that
-looks complete and collapses the first time anyone tries to train on it, one dead link at
-a time.
+The tempting shortcut is to keep the row and record the URL. It produces a dataset that looks
+complete and collapses the first time anyone tries to train on it, one dead link at a time.
 
-So the rule this pipeline is built around is **no image on disk, no publication**. A URL is
-not an image: every one is downloaded and opened by Pillow before the row is kept. And
-because that rule throws work away, the pipeline has to be able to replay any step without
-replaying the others — which is what most of the engineering below is actually about.
+So the rule this pipeline is built around is **no image on disk, no publication**. A URL is not
+an image: every one is downloaded and opened by Pillow before the row is kept. That rule throws
+work away, and most of the engineering below is the consequence: `transform` has to be able to
+run again without `extract` running again, because rerunning `extract` costs a minute of
+downloads and one call against the NewsData.io quota.
 
 ## What it does
 
@@ -36,128 +42,172 @@ Four sources, four access methods:
 | FakeNewsNet | `github_download` | academic ground truth |
 | Fakeddit | `kaggle_download` | annotated multimodal volume |
 
-The FakeNewsNet CSVs carry no image, so the pipeline recovers one from the article's Open
-Graph metadata. Publications without a usable image are dropped at the transform step.
+The FakeNewsNet CSVs carry no image, so the pipeline recovers one from the article's Open Graph
+metadata. Publications without a usable image are dropped at the transform step.
+[`docs/data-source.md`](docs/data-source.md) says why these four, and why the pipeline does
+not scrape.
 
 Five tasks, chained by an Airflow DAG that holds no logic of its own — it calls the same
 `pipeline.py` the scripts do.
 
-![The five tasks of the DAG, all successful](docs/images/airflow_graph.png)
+<!-- source: docs/images/MANIFEST.json -->
+![The five tasks of the DAG in the Airflow graph view, extract to cleanup, every one of them green after a run against the four live sources](docs/images/airflow_graph.png)
 
-A Streamlit dashboard reads the run records and the alert thresholds.
+A Streamlit dashboard reads the run records and reports every indicator against the bound
+[`docs/protocol.md`](docs/protocol.md) sets for it, and
+[`docs/interface.md`](docs/interface.md) says what each of its sections shows.
 
-![The KPI dashboard after a run](docs/images/dashboard.png)
+<!-- source: docs/images/MANIFEST.json -->
+![Nine rows of the pipeline status table, each naming an indicator, what it measured with its unit, and whether that reading sits inside the bound the protocol sets for it](docs/images/dashboard-status.png)
 
-**One run, 2026-09-03** — no NewsData key, so that source turned itself off cleanly:
+### How it is built
 
-| | |
-|---|---|
-| Publications collected | 164 (RSS 92, FakeNewsNet 48, Fakeddit 24) |
-| Kept after cleaning | 123 — the 41 dropped had no usable image |
-| Text-image pairing | 100% |
-| Images obtained | 96.9% of those attempted |
-| of which recovered from Open Graph | 8 |
-| Labelled with ground truth | 32 (26%) |
-| Total duration | 56.8 s |
+**Airflow** orchestrates five `PythonOperator` tasks that call `pipeline.py` and hold no logic
+of their own, so the same functions run from a script, from a notebook and from the DAG;
+[`docs/architecture.md`](docs/architecture.md) says what that bought and what it cost.
+**Docker** builds the image the orchestration runs in, under Airflow's own constraints file.
 
-## What is proven
+The collection is **feedparser** on the RSS feeds and **requests** everywhere else, with
+**Beautiful Soup** and **lxml** reading the Open Graph metadata of the articles FakeNewsNet
+indexes without an image, and **Pillow** opening every downloaded file before the row is kept.
+**pandas** cleans and types the result, **PyArrow** writes it as **Parquet**, and **SQLAlchemy**
+loads it into SQLite locally or **PostgreSQL** in a deployment: six tables, given field by
+field in [`docs/DB.md`](docs/DB.md), whose primary keys are what makes a replay idempotent.
 
-**The load cannot duplicate a row.** Every table is declared with its primary key and the
-insert skips conflicts, so idempotency is a property of the **schema** rather than of the
-code that happens to run first. Running the pipeline twice back to back:
+The dashboard is **Streamlit** and **Plotly**, painted from the figures' own palette and not
+from either library's defaults. Around all of it: **uv** for a locked environment, **Ruff** and
+**Bandit** on every push, and a **pytest** suite in three tiers whose outermost one starts the
+pipeline as a subprocess against an RSS feed it serves itself, then starts the dashboard with
+the command quoted below and asks it for a page.
 
-| Run | Collected | Written | Total in database |
-|---|---|---|---|
-| first | 164 | 123 | 123 |
-| second | 164 | **0** | 123 |
+## The result
 
-A test proves the constraint holds even against a writer that bypasses the loader entirely
-and issues its own `INSERT`. An earlier version read the existing keys and then wrote the
-rest — a race by construction, in a pipeline whose whole argument is that tasks can be
-replayed.
+One run, through the Airflow DAG on 2026-09-15, against the four live sources with no
+NewsData.io key, so that source turned itself off cleanly. Everything below is that run, n = 171
+publications collected, and `docs/runbook.md` carries its transcript.
 
-**The tasks are independent.** `docs/airflow_run_evidence.md` shows a single task replayed
-on its own after the working area had been emptied: it fell back to the last archived
-artefact and succeeded, without replaying the extraction.
+<!-- source: reports/data_quality.json -->
+Of those n = 171, **127 were kept**. The 44 that fell away had no image file behind them, and
+that single rule is the pipeline's reason for existing. **100 % of 127 pair a text with an image
+file** on disk, and **22 % of 127 carry a ground-truth label**.
 
-**A failing source does not stop the others.** Fifteen tests simulate a spent quota, a
-timeout, a malformed answer, a truncated image, an oversized one and a network error
-mid-loop. Each failure is also **qualified** — `quota`, `network`, `malformed`, `empty`,
-`disabled` — and only the first three count as incidents. A source turned off because no
-API key was supplied is not an outage, and the dashboard says so rather than showing a red
-count.
+<!-- source: reports/indicators.json -->
+All nine indicators of [`docs/protocol.md`](docs/protocol.md) were within their bounds, over
+that same n = 171: **74.3 %** validity against a bound of 60, **94.9 %** of the announced image
+URLs obtained against a bound of 80, **66.41 s** end to end against a bound of 90, and **0**
+failed sources.
 
-**The deduplication key misses nothing here — measured, not assumed.** Two measures on the
-123 collected publications: publications reachable through two URL variants, and one wire
-story republished by two outlets. Both return **0 pairs**. A test injects a realistic
-republication — tracking parameters, a `www.` prefix, the headline shouted — and checks the
-instrument sees it, so the zero means "nothing there" rather than "the measure is blind".
+**The load cannot duplicate a row.** Idempotency is a property of the schema: the database
+refuses the second copy, whichever writer got there first, and `docs/architecture.md` says why
+that was worth a rewrite.
 
-The key **is** fragile in principle: it hashes the exact URL and the exact title. It was
-left alone because the measure gave no reason to change it, and rehashing would alter every
-publication's identifier for a published before-and-after of 0 → 0. The measure also showed
-why this corpus cannot exercise it: the four sources barely overlap, and two publishers
-carry the same wire story under genuinely different URLs — something no URL normalisation
-reaches.
+<!-- source: docs/runbook.md -->
+The same DAG twice, back to back, over n = 171 collected each time. The first run kept 118 and
+wrote all 118 to an empty database. The second kept 127, nine images that had failed to
+download having succeeded on the retry, and wrote **9** of them. The other 118 were already
+there, and the `source` table did not move at all.
+
+A test proves the constraint holds even against a writer that bypasses the loader entirely and
+issues its own `INSERT`.
+
+**The tasks are independent.** `docs/runbook.md` shows a single task replayed on its own after
+the working area had been emptied: it fell back to the last archived artefact and succeeded,
+without replaying the extraction.
+
+**A failing source does not stop the others.** Fifteen tests simulate a spent quota, a timeout,
+a malformed answer, a truncated image, an oversized one and a network error mid-loop. Each
+failure is also **qualified**, as `quota`, `network`, `malformed`, `empty` or `disabled`, and
+only the first three count as incidents. A source turned off because no API key was supplied is
+not an outage, and the dashboard says so where a red count would have lied.
+
+<!-- source: docs/images/MANIFEST.json -->
+![Three rows of the source table after one run, showing that the pipeline distinguishes a source that delivered from one it was told not to use and one that answered empty](docs/images/dashboard-sources.png)
+
+<!-- source: reports/data_quality.json -->
+**The deduplication key misses nothing here: measured, not assumed.** Two measures over the
+n = 127 publications kept: those reachable through two URL variants, and one wire story
+republished by two outlets. Both return **0** pairs. A test injects a realistic republication,
+with tracking parameters, a `www.` prefix and the headline shouted, then checks the instrument
+sees it, so the zero means "nothing there" and not "the measure is blind".
+
+The key **is** fragile in principle: it hashes the exact URL and the exact title. It was left
+alone because the measure gave no reason to change it, and rehashing would alter every
+publication's identifier for a published before-and-after of 0 to 0. The measure also showed why
+this corpus cannot exercise it: the four sources barely overlap, and two publishers carry the
+same wire story under genuinely different URLs, which no URL normalisation reaches.
 
 ### What the dataset is actually worth
 
-`reports/data_quality.md` is regenerated by `scripts/quality_report.py`. Its most useful
-line is not a headline number:
+`reports/data_quality.md` is rendered by `scripts/quality_report.py` from
+`reports/data_quality.json`. Its most useful line is not a headline number:
 
-> The 32 labelled publications average **54.9 characters** of text, against 361.5 for the
-> unlabelled ones.
+<!-- source: reports/data_quality.json -->
+> Of the n = 127 publications kept, the 28 labelled ones average **56.1 characters** of text,
+> against 383.5 for the 99 unlabelled.
 
-The labels come from FakeNewsNet and Fakeddit, which publish a headline and no article
-body. The only rows usable for supervised training are also the textually poorest: a model
-trained on this dataset would be learning from headlines. That is worth knowing before
-using it, and a raw count of 123 rows would have hidden it.
+Both annotated datasets ship a headline and nothing else, so the rows a classifier could be
+fitted on are exactly the ones carrying the least text: train on this and you train on
+headlines. A row count of 127 says none of that, which is why `reports/data_quality.json`
+carries the two means and the report prints them next to each other.
 
 ## Why these numbers can be believed
 
-Four things were wrong, and the first one is the reason the rest were worth looking for.
+Six things were wrong, and the first one is the reason the rest were worth looking for.
 
-**The load step could not run.** `pipeline.py` imported `load.etape_chargement` and then
-defined a function of the same name. In Python the definition rebinds the module-level
-name, so the inner call resolved to the pipeline's own function, which takes one argument
-instead of two:
+**The load step could not run.** `pipeline.py` imported `load.etape_chargement`, then declared
+a local function under that same name. The declaration rebinds the module-level binding, so the
+inner call landed on the pipeline's own function, which takes one argument where two were
+passed:
 
 ```
 TypeError: run_load() takes from 0 to 1 positional arguments but 2 were given
 ```
 
-**The third task of the Airflow DAG could not complete**, and no test covered that path —
-every test that existed exercised the modules in isolation, never the pipeline step that
-chains them. The database looked healthy because it had been filled before the shadowing
-was introduced. A populated database does not prove a pipeline works.
+**The third task of the Airflow DAG could not complete**, and no test covered that path: every
+test that existed exercised the modules in isolation, never the step that chains them. The
+database looked healthy because it had been filled before the shadowing was introduced. A
+populated database does not prove a pipeline works.
 
-**A copy of the whole repository was committed inside itself.** A 72-file archive, purged
-from the full history. The repository dropped to 491 KiB.
+**Inside the container, the project root was wherever the process happened to start.** The
+package finds its root by looking for `pyproject.toml` above itself, and a mount missing that
+one file resolved it to `/opt/airflow`. Five green tasks, and a run that had written everywhere
+except where it was supposed to. The compose file now states the root, because the container is
+what knows it.
+
+**A copy of the whole repository was committed inside itself.** A 72-file archive, purged from
+the full history. The repository dropped to 491 KiB.
 
 **The code was French and the documentation English.** 34 Python files out of 35 had French
-docstrings, and the run records, the statistics files and three SQL tables used French
-keys. All of it is now English — which is how the stale task names in the runbook came to
-light: it still told the reader to run `airflow tasks test multimodal_etl transformation`,
-a task renamed to `transform` some time earlier.
+docstrings, and the run records, the statistics files and three SQL tables used French keys. All
+of it is now English — which is how the stale task names in the runbook came to light: it still
+told the reader to run `airflow tasks test multimodal_etl transformation`, a task renamed to
+`transform` some time earlier.
 
-Two properties are asserted rather than described. The thresholds in the monitoring plan
-are not copied by hand — they live in `multimodal_etl.kpi.THRESHOLDS`, and a test asserts
-the document names every one of them. The same goes for the schema: `schema.py` describes
-every field, the diagram and the data dictionary are derived from it, and a test asserts
-they cover every field. A field added to the code appears everywhere else on its own.
+**The published report could not be reproduced.** It was recomputed from whatever dataset
+happened to be on disk, so two readers on two machines got two different files from the same
+command. Measuring and publishing are now separate steps: `--measure` writes the numbers of one
+named run to `reports/data_quality.json`, and the default run renders the markdown from that
+file alone.
+
+Two further properties are asserted, not described. The bounds in `docs/protocol.md` are
+not copied by hand — they live in `multimodal_etl.kpi.THRESHOLDS`, and a test asserts the
+document names every one of them. The same goes for the schema: `schema.py` describes every
+field, the diagram and the data dictionary are derived from it, and a test asserts they cover
+every field. Add a column to `schema.py` and it reaches `docs/data_schema.mmd` and the
+dictionary in `docs/DB.md` with nobody editing either.
 
 ## Running it
 
 ```powershell
 uv sync --extra dev
 uv run python scripts/run_etl.py            # the whole pipeline, one command
-uv run streamlit run dashboard/app.py       # the KPI dashboard
-uv run python scripts/quality_report.py     # regenerate reports/data_quality.md
+uv run streamlit run src/multimodal_etl/dashboard.py   # the dashboard
+uv run python scripts/quality_report.py     # re-render reports/data_quality.md
 ```
 
 No key is needed: the pipeline runs on the RSS feeds and a versioned Fakeddit sample. A
-NewsData.io key turns on the fourth source; without one it disables itself and the run
-carries on. Each step also runs on its own:
+NewsData.io key turns on the fourth source; without one it disables itself and the run carries
+on. Each step also runs on its own:
 
 ```powershell
 uv run python scripts/run_extract.py
@@ -165,80 +215,82 @@ uv run python scripts/run_transform.py
 uv run python scripts/run_load.py
 ```
 
-A step replayed on its own falls back to the last archived artefact when the previous
-step's working file has been cleared.
+A step replayed on its own falls back to the last archived artefact when the previous step's
+working file has been cleared. Three variables steer a run without editing code:
+`MULTIMODAL_ETL_DATA_DIR` moves everything it writes, `MULTIMODAL_ETL_SOURCES` selects the
+connectors, `MULTIMODAL_ETL_RSS_FEEDS` points the feed reader elsewhere.
 
-Airflow, locally — the full walkthrough is in `docs/airflow_runbook.md`:
+Airflow, locally — the full walkthrough is in [`docs/runbook.md`](docs/runbook.md):
 
 ```powershell
-docker compose -f docker/docker-compose.airflow.yaml build
-docker compose -f docker/docker-compose.airflow.yaml up -d
+docker compose -f infra/docker-compose.airflow.yaml build
+docker compose -f infra/docker-compose.airflow.yaml up -d
 # http://localhost:8080, DAG: multimodal_etl
 ```
 
 Checks:
 
 ```powershell
-uv run python -m pytest      # 107 tests
+uv run python -m pytest      # 161 tests in three tiers
 uv run ruff check .
 uv run bandit -c pyproject.toml -r src
+uv run python scripts/smoke.py    # run it end to end and write down that it ran
 ```
-
-## Documentation
-
-| Document | What it answers |
-|---|---|
-| [`docs/source_exploration.md`](docs/source_exploration.md) | Why these four sources, and why no scraping |
-| [`docs/data_schema.md`](docs/data_schema.md) | The conceptual model and every field's role |
-| [`docs/monitoring_plan.md`](docs/monitoring_plan.md) | Which indicators, which thresholds, and what happens when one is crossed |
-| [`docs/airflow_runbook.md`](docs/airflow_runbook.md) | Running the orchestration yourself |
-| [`docs/airflow_run_evidence.md`](docs/airflow_run_evidence.md) | The captured logs of a real DAG run |
-| [`reports/data_quality.md`](reports/data_quality.md) | What fraction of the dataset is actually usable |
 
 ## Structure
 
 ```
 ├── src/multimodal_etl/
-│   ├── config.py           # paths and parameters, as frozen dataclasses
-│   ├── schema.py           # the publication schema — single source of truth
-│   ├── sources/            # one module per source + the Open Graph enrichment
-│   ├── images.py           # download and validation of the images
-│   ├── extract.py          # step E: collect -> raw JSON + image files
-│   ├── transform.py        # step T: clean, validate, normalise
-│   ├── load.py             # step L: incremental relational load
-│   ├── transit.py          # working area between steps (task independence)
-│   ├── pipeline.py         # the 5 steps, called by the scripts AND by the DAG
-│   ├── kpi.py              # indicators and alert thresholds
-│   └── quality/            # measurements on the dataset: duplicates, completeness
-├── dags/                   # the Airflow DAG — calls pipeline.py, holds no logic
-├── docker/                 # image and compose file for a local Airflow
-├── dashboard/              # the Streamlit application
-├── docs/                   # sources, schema, monitoring, run evidence
-├── notebooks/              # the steps, walked through one at a time
-├── reports/                # the generated data quality report
-└── tests/                  # 107 tests
+│   ├── config.py           paths and parameters, as frozen dataclasses
+│   ├── schema.py           the publication schema — single source of truth
+│   ├── sources/            one module per source, and the Open Graph enrichment
+│   ├── images.py           download and validation of the images
+│   ├── extract.py          step E: collect -> raw JSON + image files
+│   ├── transform.py        step T: clean, validate, normalise
+│   ├── load.py             step L: incremental relational load
+│   ├── transit.py          working area between steps — what makes tasks independent
+│   ├── pipeline.py         the five steps, called by the scripts AND by the DAG
+│   ├── kpi.py              indicators, units and bounds
+│   ├── dashboard.py        the Streamlit page
+│   └── quality/            measurements on the dataset: duplicates, completeness
+├── dags/                   the Airflow DAG — calls pipeline.py, holds no logic
+├── infra/                  image and compose file for a local Airflow
+├── docs/
+│   ├── architecture.md     the engineering decisions, and what was left out
+│   ├── data-source.md      the four sources, their terms, and the ones ruled out
+│   ├── DB.md               the model, the dictionary and the six tables
+│   ├── interface.md        what the dashboard shows, and the rules it follows
+│   ├── protocol.md         every indicator, its bound, and what crossing it does
+│   └── runbook.md          running the orchestration, and the logs of a real run
+├── notebooks/              exploration, extraction, transformation, indicators
+├── reports/                the data quality measures and the report rendered from them
+├── scripts/                the pipeline, the diagram, the report, the captures, the smoke
+└── tests/                  unit, integration, system
 ```
 
 ## What this does not prove
 
-**Scale.** A few hundred publications reveal neither the memory behaviour, nor contention,
-nor hash collisions. The pipeline demonstrates an architecture, not its resistance at
-scale. Generating an artificial volume would measure a simulation, so it was not done.
+**Scale.** A few hundred publications reveal neither the memory behaviour, nor contention, nor
+hash collisions. The pipeline demonstrates an architecture, not its resistance at scale.
+Generating an artificial volume would measure a simulation, so it was not done.
 
-**Concurrency in practice.** The database now refuses a duplicate key, which is what makes
-concurrent writers safe in principle. No test runs two loaders at once against the same
-database.
+**Concurrency in practice.** The database refuses a duplicate key, which is what makes concurrent
+writers safe in principle. No test runs two loaders at once against the same database.
 
-**That the sources stay reachable.** Every figure here depends on feeds that can change
-format or disappear. The monitoring plan says which indicator would catch that, and the
-thresholds are calibrated on measured behaviour rather than on wishes.
+**That the sources stay reachable.** Every figure here depends on feeds that can change format or
+disappear. `docs/protocol.md` names the indicator that would catch it, and the bounds are
+calibrated on measured behaviour, not on wishes.
+
+**That anything is watched.** Crossing a bound writes a log line and colours a row. There is no
+alerting, no drift detection and nobody on call; `docs/protocol.md` separates what runs from what
+a deployment would add.
 
 ## Licence and data
 
 MIT, for the code.
 
-**No third-party data is redistributed here.** The four sources are read at run time and
-each keeps its own terms:
+**No third-party data is redistributed here.** The four sources are read at run time and each
+keeps its own terms:
 
 | Source | Access | Terms to observe |
 |---|---|---|
@@ -248,9 +300,13 @@ each keeps its own terms:
 | Fakeddit | download from its host | its own research licence and citation |
 
 The only data file in the repository, `data/samples/fakeddit_sample.tsv`, is **synthetic**:
-twenty-five made-up rows with the real column structure, so the tests and the documentation
-can show the shape of a record without carrying anyone's content. Images are downloaded
-into `data/images/` at run time and are not committed.
+twenty-four made-up rows with the real column structure, and freely-licensed illustrations, so
+the tests and the documentation can show the shape of a record without carrying anyone's content.
+Every published screenshot and every smoke run is taken against it, for the same reason.
+Images are downloaded into `data/` at run time and are not committed.
 
-A run therefore reproduces the pipeline, not the corpus. That is deliberate — the sources
-are live, and the figures in this README are dated for the same reason.
+`reports/data_quality.json` holds counts, and never a headline or a URL: that is what lets the
+published report be regenerated byte for byte while the corpus itself stays out of the repository.
+
+A run therefore reproduces the pipeline, not the corpus. That is deliberate, and it is why the
+figures on this page carry the date of the run that produced them.
