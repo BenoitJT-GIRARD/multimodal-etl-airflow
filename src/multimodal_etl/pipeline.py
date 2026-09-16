@@ -30,6 +30,7 @@ from multimodal_etl.config import (
     LoadConfig,
     TransformConfig,
     ensure_dirs,
+    relative_path,
 )
 from multimodal_etl.extract import run_extraction
 from multimodal_etl.load import count_publications, load_dataset
@@ -158,7 +159,7 @@ def run_metrics(orchestrator: str = "script") -> dict[str, object]:
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
     record = RUNS_DIR / f"run_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
     record.write_text(json.dumps(run, ensure_ascii=False, indent=2), encoding="utf-8")
-    logger.info("Metrics: run record written to %s", record)
+    logger.info("Metrics: run record written to %s", relative_path(record))
 
     run["file"] = str(record)
     return run

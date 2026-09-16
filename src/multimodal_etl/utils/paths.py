@@ -11,10 +11,9 @@ walked back three times in a script, no artefact read or written through a path 
 the working directory: each of those is a second answer to a question that already has one,
 and they disagree the day someone runs a script from another directory.
 
-The directory names are a closed vocabulary.
-A project adds its own *named artefacts* below — the served model, the published table — and
-never a new root directory: a directory outside the vocabulary exists only when
-a technical reason imposes it, and that reason is written down.
+The directory names below are the whole vocabulary this project uses at its root. Named
+artefacts — the served model, the published table — hang off them; a new root directory
+does not get added because a script found it convenient.
 """
 
 from __future__ import annotations
@@ -26,7 +25,8 @@ from pathlib import Path
 def _package_name() -> str:
     """The distribution package this module belongs to, read from the import system.
 
-    Nothing in it names this project, so the module can be copied as it is.
+    Read rather than written down, so that renaming the package does not leave a stale
+    string behind in the one module whose job is to know where things are.
     """
     if __package__:
         return __package__.split(".")[0]
@@ -73,6 +73,21 @@ INFRA_DIR: Path = ROOT_DIR / "infra"
 #: The only ignored directory: logs, checkpoints, caches, coverage reports, anything a run
 #: leaves behind that no reader is meant to open.
 VAR_DIR: Path = ROOT_DIR / "var"
+
+
+def rel(path: Path | str) -> str:
+    """A path as a log line should carry it: relative to the project, with forward slashes.
+
+    A log that reads ``C:/Users/someone/work/data/raw/events.json`` says where the run
+    happened, which the next reader cannot use and cannot compare with their own run. The
+    part that carries information is ``data/raw/events.json``. A path outside the project
+    keeps its absolute form, because there it is the only unambiguous answer.
+    """
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(ROOT_DIR).as_posix()
+    except ValueError:
+        return resolved.as_posix()
 
 
 def ensure_dirs() -> None:

@@ -19,7 +19,13 @@ import pandas as pd
 import tldextract
 from bs4 import BeautifulSoup
 
-from multimodal_etl.config import PROCESSED_DIR, TransformConfig, absolute_path, ensure_dirs
+from multimodal_etl.config import (
+    PROCESSED_DIR,
+    TransformConfig,
+    absolute_path,
+    ensure_dirs,
+    relative_path,
+)
 from multimodal_etl.logging_setup import get_logger
 from multimodal_etl.schema import COLUMNS, Publication, generate_id, generate_source_id
 
@@ -182,7 +188,7 @@ def build_publication(
 # --------------------------------------------------------------------------- #
 def read_raw(path: Path) -> list[dict[str, object]]:
     """Step 1 — read: load the raw publications from a JSON file."""
-    logger.info("Transform: reading raw file %s", path)
+    logger.info("Transform: reading raw file %s", relative_path(path))
     with path.open("r", encoding="utf-8") as handle:
         records = json.load(handle)
     logger.info("Transform: %d raw publications read", len(records))
@@ -244,12 +250,12 @@ def export_dataset(
         df.to_parquet(path, index=False)
     else:
         df.to_csv(path, index=False, encoding="utf-8")
-    logger.info("Transform: dataset of %d rows exported to %s", len(df), path)
+    logger.info("Transform: dataset of %d rows exported to %s", len(df), relative_path(path))
 
     stats_path = path.with_name(path.stem + "_stats.json")
     with stats_path.open("w", encoding="utf-8") as handle:
         json.dump(stats or {}, handle, ensure_ascii=False, indent=2)
-    logger.info("Transform: statistics written to %s", stats_path)
+    logger.info("Transform: statistics written to %s", relative_path(stats_path))
     return path
 
 

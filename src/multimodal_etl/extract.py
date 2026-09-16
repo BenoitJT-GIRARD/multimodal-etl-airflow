@@ -18,7 +18,13 @@ from pathlib import Path
 
 import requests
 
-from multimodal_etl.config import RAW_DIR, ExtractionConfig, ImageConfig, ensure_dirs
+from multimodal_etl.config import (
+    RAW_DIR,
+    ExtractionConfig,
+    ImageConfig,
+    ensure_dirs,
+    relative_path,
+)
 from multimodal_etl.images import download_images
 from multimodal_etl.logging_setup import get_logger
 from multimodal_etl.sources import fakenewsnet, kaggle_fakeddit, newsdata, rss
@@ -133,7 +139,7 @@ def save_raw(records: list[dict], path: Path | None = None) -> Path:
     path = path or RAW_DIR / f"raw_publications_{_timestamp()}.json"
     with path.open("w", encoding="utf-8") as handle:
         json.dump(records, handle, ensure_ascii=False, indent=2)
-    logger.info("Extract: %d publications written to %s", len(records), path)
+    logger.info("Extract: %d publications written to %s", len(records), relative_path(path))
     return path
 
 
