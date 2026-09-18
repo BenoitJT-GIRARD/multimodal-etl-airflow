@@ -175,6 +175,12 @@ What each source contributes, not merely how much.
 
 {_markdown(measures["by_source"], ("source", "publications", "with_image", "labelled", "mean_text_length"))}
 
+> **How to read it.** One row per source feeding the pipeline. `publications` counts what the
+> source delivered, `with_image` how many of those carried a usable illustration, and `labelled`
+> how many arrived with a ground-truth annotation. `mean_text_length` is the average number of
+> characters of body text, and it is the column that separates a full article from a headline
+> with a link under it.
+
 ### What the labelled subset really looks like
 
 {_label_note(measures["labelled_subset"])}
