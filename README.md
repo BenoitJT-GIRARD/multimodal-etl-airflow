@@ -50,6 +50,22 @@ not scrape.
 Five tasks, chained by an Airflow DAG that holds no logic of its own — it calls the same
 `pipeline.py` the scripts do.
 
+```mermaid
+flowchart LR
+    RSS["RSS feeds<br/>Guardian, BBC, ABC News"] --> EX
+    API["NewsData.io<br/>REST API"] --> EX
+    FNN["FakeNewsNet<br/>GitHub download"] --> EX
+    FKD["Fakeddit<br/>Kaggle download"] --> EX
+
+    subgraph DAG["Airflow DAG: five tasks, and no logic of its own — it calls the pipeline the scripts call"]
+        direction LR
+        EX["extract"] --> OG["image recovered from the article's<br/>Open Graph metadata when the source carries none"]
+        OG --> GATE{"a usable image,<br/>actually on disk?"}
+        GATE -->|"no"| DROP["dropped in transform"]
+        GATE -->|"yes"| LOAD["load<br/>incremental, into the relational store"]
+    end
+```
+
 <!-- source: docs/images/MANIFEST.json -->
 ![The five tasks of the DAG in the Airflow graph view, extract to cleanup, every one of them green after a run against the four live sources](docs/images/airflow_graph.png)
 
