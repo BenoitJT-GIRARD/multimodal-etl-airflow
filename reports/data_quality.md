@@ -36,6 +36,12 @@ What each source contributes, not merely how much.
 | fakeddit | 20 | 20 | 20 | 56 |
 | fakenewsnet:gossipcop | 8 | 8 | 8 | 57 |
 
+> **How to read it.** One row per source feeding the pipeline. `publications` counts what the
+> source delivered, `with_image` how many of those carried a usable illustration, and `labelled`
+> how many arrived with a ground-truth annotation. `mean_text_length` is the average number of
+> characters of body text, and it is the column that separates a full article from a headline
+> with a link under it.
+
 ### What the labelled subset really looks like
 
 The 28 labelled publications average **56.1 characters** of text, against 383.5 for the unlabelled ones. The labels come from FakeNewsNet and Fakeddit, which publish a headline and no article body: the only rows usable for supervised training are also the textually poorest. A model trained on this dataset would be learning from headlines.
