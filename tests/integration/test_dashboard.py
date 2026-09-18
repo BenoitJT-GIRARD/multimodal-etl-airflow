@@ -140,9 +140,7 @@ def test_every_card_carries_its_unit(dataset: Path) -> None:
     """A dashboard whose cards read « 96.9 » leaves the reader to guess the unit."""
     application = _run()
     unitless = [
-        card.value
-        for card in application.metric
-        if card.value.rstrip().rstrip("0123456789.") == ""
+        card.value for card in application.metric if card.value.rstrip().rstrip("0123456789.") == ""
     ]
     assert not unitless, f"cards with a bare number: {unitless}"
 

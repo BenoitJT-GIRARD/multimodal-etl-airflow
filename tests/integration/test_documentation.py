@@ -102,4 +102,6 @@ def test_every_published_image_is_declared_in_the_manifest() -> None:
     manifest = json.loads((images / "MANIFEST.json").read_text(encoding="utf-8"))
     declared = set(manifest["images"])
     published = {path.name for path in images.glob("*.png")}
-    assert published == declared, f"published {published - declared}, declared {declared - published}"
+    assert published == declared, (
+        f"published {published - declared}, declared {declared - published}"
+    )

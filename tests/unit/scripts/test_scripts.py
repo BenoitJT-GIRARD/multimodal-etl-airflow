@@ -63,9 +63,7 @@ def test_the_report_is_rendered_from_the_tracked_measures(monkeypatch, tmp_path)
     """The published markdown is a function of a tracked file, never of the disk's last run."""
     import quality_report
 
-    measures = json.loads(
-        (quality_report.MEASURES).read_text(encoding="utf-8")
-    )
+    measures = json.loads((quality_report.MEASURES).read_text(encoding="utf-8"))
     target = tmp_path / "data_quality.md"
     monkeypatch.setattr(quality_report, "REPORT", target)
 
@@ -90,9 +88,7 @@ def test_measuring_an_empty_dataset_writes_nothing(monkeypatch, tmp_path) -> Non
     import pandas as pd
     import quality_report
 
-    monkeypatch.setattr(
-        quality_report, "load_latest_dataset", lambda: (pd.DataFrame(), {}, {})
-    )
+    monkeypatch.setattr(quality_report, "load_latest_dataset", lambda: (pd.DataFrame(), {}, {}))
     written: list[Path] = []
     monkeypatch.setattr(quality_report, "_write", lambda path, payload: written.append(path))
 

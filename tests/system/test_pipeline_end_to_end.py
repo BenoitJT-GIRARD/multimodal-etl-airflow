@@ -244,7 +244,9 @@ def test_a_second_run_adds_nothing(wire: int, completed_run: dict) -> None:
     )
     assert finished.returncode == 0, finished.stdout + finished.stderr
 
-    record = json.loads(sorted((data / "processed" / "runs").glob("run_*.json"))[-1].read_text("utf-8"))
+    record = json.loads(
+        sorted((data / "processed" / "runs").glob("run_*.json"))[-1].read_text("utf-8")
+    )
     assert record["rows_extracted"] == ENTRIES
     assert record["rows_loaded"] == 0
     assert record["rows_in_db"] == WITH_A_USABLE_IMAGE

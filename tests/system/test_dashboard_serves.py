@@ -155,7 +155,7 @@ def test_streamlit_reads_the_theme_this_repository_owns() -> None:
 
     # `config show` opens on a banner whose second line carries no `#`, so the text is not
     # TOML until the first section header.
-    body = shown.stdout[shown.stdout.index("[global]"):]
+    body = shown.stdout[shown.stdout.index("[global]") :]
     applied = tomllib.loads(body)
     owned = tomllib.loads((ROOT_DIR / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
     assert applied["theme"]["primaryColor"] == owned["theme"]["primaryColor"]

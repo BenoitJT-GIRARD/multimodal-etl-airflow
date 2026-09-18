@@ -111,7 +111,9 @@ def test_the_versioned_sample_is_found_whatever_the_data_directory(monkeypatch, 
     assert (reloaded.SAMPLES_DIR / "fakeddit_sample.tsv").is_file()
 
 
-def test_preparing_the_directories_never_creates_the_sample_directory(monkeypatch, tmp_path) -> None:
+def test_preparing_the_directories_never_creates_the_sample_directory(
+    monkeypatch, tmp_path
+) -> None:
     monkeypatch.setenv("MULTIMODAL_ETL_DATA_DIR", str(tmp_path / "fresh"))
     reloaded = _reloaded()
     reloaded.ensure_dirs()

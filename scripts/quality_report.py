@@ -112,9 +112,7 @@ def show_duplicates() -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument(
-        "--measure", action="store_true", help="remeasure from the dataset on disk"
-    )
+    parser.add_argument("--measure", action="store_true", help="remeasure from the dataset on disk")
     parser.add_argument(
         "--duplicates", action="store_true", help="print the duplicate measure, write nothing"
     )

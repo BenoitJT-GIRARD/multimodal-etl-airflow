@@ -62,7 +62,11 @@ LAYOUT = {
     "font": {"color": PALETTE["ink"], "size": 13},
     "margin": {"t": 30, "b": 40, "l": 10, "r": 10},
 }
-AXIS = {"gridcolor": PALETTE["grid"], "zerolinecolor": PALETTE["grid"], "linecolor": PALETTE["muted"]}
+AXIS = {
+    "gridcolor": PALETTE["grid"],
+    "zerolinecolor": PALETTE["grid"],
+    "linecolor": PALETTE["muted"],
+}
 
 
 def _styled(frame: pd.DataFrame, column: str, colours: dict[str, str]) -> object:

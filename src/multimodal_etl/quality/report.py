@@ -135,10 +135,7 @@ def _markdown(rows: list[dict[str, Any]], columns: tuple[str, ...]) -> str:
     """Render a list of records as a markdown table, without pulling in a dependency."""
     header = "| " + " | ".join(columns) + " |"
     rule = "|" + "|".join("---" for _ in columns) + "|"
-    body = [
-        "| " + " | ".join(str(row[column]) for column in columns) + " |"
-        for row in rows
-    ]
+    body = ["| " + " | ".join(str(row[column]) for column in columns) + " |" for row in rows]
     return "\n".join([header, rule, *body])
 
 

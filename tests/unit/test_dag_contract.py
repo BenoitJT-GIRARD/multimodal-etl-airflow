@@ -108,7 +108,8 @@ def test_a_task_is_retried_once_and_not_indefinitely(tree: ast.Module) -> None:
         and any(getattr(t, "id", "") == "default_args" for t in node.targets)
     )
     keys = {
-        k.value: v for k, v in zip(defaults.value.keys, defaults.value.values, strict=True)
+        k.value: v
+        for k, v in zip(defaults.value.keys, defaults.value.values, strict=True)
         if isinstance(k, ast.Constant)
     }
     assert keys["retries"].value == 1

@@ -158,8 +158,7 @@ def render(mmd_path: Path) -> Path | None:
     output = IMAGES_DIR / "data_schema.png"
     try:
         subprocess.run(
-            [*base_command, "-i", str(mmd_path), "-o", str(output),
-             "-b", "white", "-t", "neutral"],
+            [*base_command, "-i", str(mmd_path), "-o", str(output), "-b", "white", "-t", "neutral"],
             check=True,
             capture_output=True,
             text=True,

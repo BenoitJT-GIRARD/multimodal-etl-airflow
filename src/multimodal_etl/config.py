@@ -19,6 +19,7 @@ from multimodal_etl.utils.paths import ROOT_DIR, VAR_DIR
 # mounts the project somewhere else again.
 PROJECT_ROOT: Path = ROOT_DIR
 
+
 def _env_path(name: str, default: Path) -> Path:
     """Read a directory from the environment, resolved against the project root if relative."""
     raw = os.environ.get(name, "").strip()
