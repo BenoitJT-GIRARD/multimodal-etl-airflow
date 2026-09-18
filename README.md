@@ -12,7 +12,7 @@
 **Project status** — frozen, and still runnable. One command replays the whole chain against
 live feeds, which is also why tomorrow's numbers will not be the ones on this page: what a run
 reproduces is the pipeline, never the corpus. `reports/run-evidence.json` records the last time
-that was checked end to end. The workflows lint, scan and test on every push, and read no
+that was checked end to end. The workflows lint, scan and test when they are started, and read no
 source.
 
 ## The problem
@@ -92,7 +92,7 @@ field in [`docs/DB.md`](docs/DB.md), whose primary keys are what makes a replay 
 
 The dashboard is **Streamlit** and **Plotly**, painted from the same colours as the figures
 and not from either library's defaults. Around all of it: **uv** for a locked environment, **Ruff** and
-**Bandit** on every push, and a **pytest** suite in three tiers whose outermost one starts the
+**Bandit** on each run, and a **pytest** suite in three tiers whose outermost one starts the
 pipeline as a subprocess against an RSS feed it serves itself, then starts the dashboard with
 the command quoted below and asks it for a page.
 
