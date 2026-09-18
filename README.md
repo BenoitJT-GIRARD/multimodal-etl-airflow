@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="docs/badges/python.svg" alt="Python 3.12">
-  <img src="docs/badges/stack.svg" alt="Built with Airflow · Plotly · PostgreSQL">
+  <img src="docs/badges/stack.svg" alt="Built with Airflow · PostgreSQL · SQLAlchemy">
   <img src="docs/badges/licence.svg" alt="License: MIT">
   <img src="docs/badges/coverage.svg" alt="coverage 77%">
 </p>
