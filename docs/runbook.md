@@ -245,5 +245,15 @@ That dataset of 127 rows is the one `reports/data_quality.json` was measured on.
 
 ## Credentials
 
+One key comes from outside, and it is optional.
+
+| Variable | Issuer | Getting one | Where to put it |
+|---|---|---|---|
+| `NEWSDATA_API_KEY` | NewsData.io | register at [newsdata.io/register](https://newsdata.io/register); the key is on the account's dashboard | `.env` at the root for `scripts/run_etl.py`, and `infra/.env` for Airflow |
+
+Without it the NewsData.io source turns itself off and the three others run, so a
+demonstration does not depend on it. NewsData.io does not delete a key: it regenerates it,
+from the same dashboard, and regenerating is how a key that has been shown is retired.
+
 The `airflow` / `airflow` pair in the compose file is fit for a local run and nothing else.
 `docs/DB.md` says what a deployment does instead about the pipeline's own database.
