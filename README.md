@@ -22,12 +22,12 @@ sources will each give you one of those reliably and the other only sometimes: R
 an image URL that may 404, FakeNewsNet publishes CSVs with no image at all, and an API can go
 quiet the moment its quota runs out.
 
-The tempting shortcut is to keep the row and record the URL. It produces a dataset that looks
-complete and collapses the first time anyone tries to train on it, one dead link at a time.
+Keeping the row and recording the URL would be the shortcut. The result would look complete, then
+lose a row to every dead link the first time anyone tried to train on it.
 
-So the rule this pipeline is built around is **no image on disk, no publication**. A URL is not
-an image: every one is downloaded and opened by Pillow before the row is kept. That rule throws
-work away, and most of the engineering below is the consequence: `transform` has to be able to
+So the rule this pipeline is built around is **no image on disk, no publication**. Every image
+URL is downloaded, and the file opened by Pillow, before the row is kept. The rule throws work
+away, and most of the engineering below follows from it: `transform` has to be able to
 run again without `extract` running again, because rerunning `extract` costs a minute of
 downloads and one call against the NewsData.io quota.
 
@@ -47,7 +47,7 @@ metadata. Publications without a usable image are dropped at the transform step.
 [`docs/data-source.md`](docs/data-source.md) says why these four, and why the pipeline does
 not scrape.
 
-Five tasks, chained by an Airflow DAG that holds no logic of its own — it calls the same
+An Airflow DAG chains five tasks and holds no logic of its own: it calls the same
 `pipeline.py` the scripts do.
 
 ```mermaid
@@ -103,9 +103,10 @@ NewsData.io key, so that source turned itself off cleanly. Everything below is t
 publications collected, and `docs/runbook.md` carries its transcript.
 
 <!-- source: reports/data_quality.json -->
-Of those n = 171, **127 were kept**. The 44 that fell away had no image file behind them, and
-that single rule is the pipeline's reason for existing. **100 % of 127 pair a text with an image
-file** on disk, and **22 % of 127 carry a ground-truth label**.
+Of those n = 171, **127 were kept**. The 44 that fell away had no image file behind them.
+**100 % of 127 pair a text with an image
+file** on disk, and
+**22 % of 127 carry a ground-truth label**.
 
 <!-- source: reports/indicators.json -->
 All nine indicators of [`docs/protocol.md`](docs/protocol.md) were within their bounds, over
@@ -118,7 +119,7 @@ refuses the second copy, whichever writer got there first, and `docs/architectur
 that was worth a rewrite.
 
 <!-- source: docs/runbook.md -->
-The same DAG twice, back to back, over n = 171 collected each time. The first run kept 118 and
+The same DAG ran twice, back to back, over n = 171 collected each time. The first run kept 118 and
 wrote all 118 to an empty database. The second kept 127, nine images that had failed to
 download having succeeded on the retry, and wrote **9** of them. The other 118 were already
 there, and the `source` table did not move at all.
@@ -132,21 +133,21 @@ without replaying the extraction.
 
 **A failing source does not stop the others.** Fifteen tests simulate a spent quota, a timeout,
 a malformed answer, a truncated image, an oversized one and a network error mid-loop. Each
-failure is also **qualified**, as `quota`, `network`, `malformed`, `empty` or `disabled`, and
+failure is also qualified, as `quota`, `network`, `malformed`, `empty` or `disabled`, and
 only the first three count as incidents. A source turned off because no API key was supplied is
-not an outage, and the dashboard says so where a red count would have lied.
+not an outage, and the dashboard says so instead of adding it to a red count.
 
 <!-- source: docs/images/MANIFEST.json -->
 ![Three rows of the source table after one run, showing that the pipeline distinguishes a source that delivered from one it was told not to use and one that answered empty](docs/images/dashboard-sources.png)
 
 <!-- source: reports/data_quality.json -->
-**The deduplication key misses nothing here: measured, not assumed.** Two measures over the
+**Measured on this corpus, the deduplication key misses nothing.** Two measures over the
 n = 127 publications kept: those reachable through two URL variants, and one wire story
 republished by two outlets. Both return **0** pairs. A test injects a realistic republication,
 with tracking parameters, a `www.` prefix and the headline shouted, then checks the instrument
 sees it, so the zero means "nothing there" and not "the measure is blind".
 
-The key **is** fragile in principle: it hashes the exact URL and the exact title. It was left
+The key is still fragile in principle: it hashes the exact URL and the exact title. It was left
 alone because the measure gave no reason to change it, and rehashing would alter every
 publication's identifier for a published before-and-after of 0 to 0. The measure also showed why
 this corpus cannot exercise it: the four sources barely overlap, and two publishers carry the
@@ -155,15 +156,16 @@ same wire story under genuinely different URLs, which no URL normalisation reach
 ### What the dataset is actually worth
 
 `reports/data_quality.md` is rendered by `scripts/quality_report.py` from
-`reports/data_quality.json`. Its most useful line is not a headline number:
+`reports/data_quality.json`. Its most useful line compares the labelled rows with the
+unlabelled ones:
 
 <!-- source: reports/data_quality.json -->
 > Of the n = 127 publications kept, the 28 labelled ones average **56.1 characters** of text,
 > against 383.5 for the 99 unlabelled.
 
 Both annotated datasets ship a headline and nothing else, so the rows a classifier could be
-fitted on are exactly the ones carrying the least text: train on this and you train on
-headlines. A row count of 127 says none of that, which is why `reports/data_quality.json`
+fitted on are exactly the ones carrying the least text, and a model trained on them learns
+from headlines. A row count of 127 says none of that, which is why `reports/data_quality.json`
 carries the two means and the report prints them next to each other.
 
 ## Why these numbers can be believed
@@ -181,21 +183,21 @@ TypeError: run_load() takes from 0 to 1 positional arguments but 2 were given
 
 **The third task of the Airflow DAG could not complete**, and no test covered that path: every
 test that existed exercised the modules in isolation, never the step that chains them. The
-database looked healthy because it had been filled before the shadowing was introduced. A
-populated database does not prove a pipeline works.
+database looked healthy because it had been filled before the shadowing was introduced.
 
 **Inside the container, the project root was wherever the process happened to start.** The
 package finds its root by looking for `pyproject.toml` above itself, and a mount missing that
-one file resolved it to `/opt/airflow`. Five green tasks, and a run that had written everywhere
-except where it was supposed to. The compose file now states the root, because the container is
+one file resolved it to `/opt/airflow`. All five tasks went green while the run wrote
+everywhere except where it was supposed to. The compose file now states the root, because the container is
 what knows it.
 
-**A copy of the whole repository was committed inside itself.** A 72-file archive, purged from
-the full history. The repository dropped to 491 KiB.
+**A copy of the whole repository was committed inside itself.** The 72-file archive was
+purged from the full history, and the repository dropped to 491 KiB.
 
 **The code was French and the documentation English.** 34 Python files out of 35 had French
 docstrings, and the run records, the statistics files and three SQL tables used French keys. All
-of it is now English — which is how the stale task names in the runbook came to light: it still
+of it is now English, and the translation is how the stale task names in the runbook came to
+light: it still
 told the reader to run `airflow tasks test multimodal_etl transformation`, a task renamed to
 `transform` some time earlier.
 
@@ -205,8 +207,8 @@ command. Measuring and publishing are now separate steps: `--measure` writes the
 named run to `reports/data_quality.json`, and the default run renders the markdown from that
 file alone.
 
-Two further properties are asserted, not described. The bounds in `docs/protocol.md` are
-not copied by hand — they live in `multimodal_etl.kpi.THRESHOLDS`, and a test asserts the
+Tests also assert two further properties. The bounds in `docs/protocol.md` come from
+`multimodal_etl.kpi.THRESHOLDS` instead of being copied by hand, and a test asserts the
 document names every one of them. The same goes for the schema: `schema.py` describes every
 field, the diagram and the data dictionary are derived from it, and a test asserts they cover
 every field. Add a column to `schema.py` and it reaches `docs/data_schema.mmd` and the
@@ -236,7 +238,7 @@ working file has been cleared. Three variables steer a run without editing code:
 `MULTIMODAL_ETL_DATA_DIR` moves everything it writes, `MULTIMODAL_ETL_SOURCES` selects the
 connectors, `MULTIMODAL_ETL_RSS_FEEDS` points the feed reader elsewhere.
 
-Airflow, locally — the full walkthrough is in [`docs/runbook.md`](docs/runbook.md):
+Airflow, locally (the full walkthrough is in [`docs/runbook.md`](docs/runbook.md)):
 
 ```powershell
 docker compose -f infra/docker-compose.airflow.yaml build
@@ -295,7 +297,7 @@ writers safe in principle. No test runs two loaders at once against the same dat
 
 **That the sources stay reachable.** Every figure here depends on feeds that can change format or
 disappear. `docs/protocol.md` names the indicator that would catch it, and the bounds are
-calibrated on measured behaviour, not on wishes.
+calibrated on measured behaviour.
 
 **That anything is watched.** Crossing a bound writes a log line and colours a row. There is no
 alerting, no drift detection and nobody on call; `docs/protocol.md` separates what runs from what
@@ -324,5 +326,5 @@ Images are downloaded into `data/` at run time and are not committed.
 `reports/data_quality.json` holds counts, and never a headline or a URL: that is what lets the
 published report be regenerated byte for byte while the corpus itself stays out of the repository.
 
-A run therefore reproduces the pipeline, not the corpus. That is deliberate, and it is why the
+A run therefore reproduces the pipeline but not the corpus. That is by design, and it is why the
 figures on this page carry the date of the run that produced them.
