@@ -71,7 +71,8 @@ demonstration sample, where three bounds are crossed and the page says which.
 | Into `watch` | a `WARNING` line in `var/logs/multimodal_etl.log`, and an amber row on the dashboard |
 | Into `act now` | an `ERROR` line, and a red row with a banner naming the indicator and its bound |
 
-Nothing else happens: the pipeline runs on one machine, and there is nobody on call. The section below says what a deployment would add.
+Nothing else happens: the pipeline runs on one machine, and there is nobody on call. The last
+section of this document says what a deployment would add.
 
 ## How the pipeline degrades instead of stopping
 

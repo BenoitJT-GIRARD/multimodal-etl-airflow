@@ -73,7 +73,7 @@ They complement each other: two bring freshness, two bring labelled, stable volu
 |---|---|
 | Access | `rss_feed`, through `feedparser`, no key |
 | Read on | The Guardian, BBC News, ABC News, 2026-09-03 |
-| Modalities | title + summary, image in `media:content`, `enclosure` or `<img>` |
+| Modalities | title + summary, image in `media:content`, `media:thumbnail`, `enclosure` or `<img>` |
 | Format | RSS / XML |
 | Language | English |
 | Labels | none |

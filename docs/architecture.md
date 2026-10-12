@@ -66,7 +66,7 @@ a feed served on loopback by the test itself.
 
 ## What was left out, and why
 
-Four alternatives were looked at and rejected.
+Five alternatives were looked at and rejected.
 
 **A message queue between the steps.** Kafka or Redis would decouple the steps further and
 would add a service to run, to monitor and to explain. Files on disk already give replay and

@@ -21,7 +21,7 @@ the person who wrote the pipeline, so nothing on the page assumes the code has b
 unit sits beside every figure, each bound says which side of it is the healthy one, and the
 reason an indicator exists at all is in the row with it.
 
-## Seven sections, in the order the questions come
+## Eight sections, in the order the questions come
 
 | Section | The question it answers |
 |---|---|
