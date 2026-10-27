@@ -29,6 +29,9 @@ logger = get_logger(__name__)
 # find the input waiting for it without knowing anything about the run that produced it.
 EXTRACTION = "extraction.json"
 DATASET = "dataset.parquet"
+# The transformed dataset keeps the extension of its format, because the load step chooses
+# its reader from that extension: a CSV export staged as `dataset.parquet` was read as Parquet.
+DATASETS = (DATASET, "dataset.csv")
 
 # Metrics dropped by each step and read back by the "metrics" step.
 METRICS_FILES = {
@@ -43,15 +46,16 @@ def path_for(name: str) -> Path:
     return INTERIM_DIR / name
 
 
-def _latest_artefact(directory: Path, pattern: str) -> Path | None:
-    """Return the most recent file of a directory matching a pattern.
+def _latest_artefact(directory: Path, *patterns: str) -> Path | None:
+    """Return the most recent file of a directory matching one of the patterns.
 
     The file name breaks the tie between two artefacts written in the same second: every
     name the pipeline produces carries a sortable timestamp.
     """
     if not directory.exists():
         return None
-    files = sorted(directory.glob(pattern), key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+    candidates = [path for pattern in patterns for path in directory.glob(pattern)]
+    files = sorted(candidates, key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
     return files[0] if files else None
 
 
@@ -62,6 +66,20 @@ def stage(artefact: Path, name: str) -> Path:
     shutil.copy2(artefact, destination)
     logger.info("Working area: '%s' staged for the next step", name)
     return destination
+
+
+def stage_dataset(artefact: Path) -> Path:
+    """Stage the transformed dataset under the name of its own format, Parquet or CSV.
+
+    A dataset staged by an earlier run in the other format is removed first, so the load
+    step cannot pick it up instead.
+    """
+    name = f"dataset{artefact.suffix}"
+    if name not in DATASETS:
+        raise ValueError(f"unexpected dataset format: {artefact.name}")
+    for stale in DATASETS:
+        path_for(stale).unlink(missing_ok=True)
+    return stage(artefact, name)
 
 
 def write_metrics(step: str, metrics: dict[str, object]) -> Path:
@@ -104,15 +122,14 @@ def extraction_input() -> Path | None:
 
 def dataset_input() -> Path | None:
     """Return the transformed dataset to load, with the same fallback mechanism."""
-    path = path_for(DATASET)
-    if path.exists():
-        return path
+    for name in DATASETS:
+        path = path_for(name)
+        if path.exists():
+            return path
 
-    fallback = _latest_artefact(PROCESSED_DIR, "publications_*.parquet")
+    fallback = _latest_artefact(PROCESSED_DIR, "publications_*.parquet", "publications_*.csv")
     if fallback is not None:
-        logger.warning(
-            "Working area: '%s' missing, falling back to archive %s", DATASET, fallback.name
-        )
+        logger.warning("Working area: no staged dataset, falling back to archive %s", fallback.name)
     return fallback
 
 

@@ -6,8 +6,9 @@ the dataset is, how diverse its sources are, and what each run genuinely adds.
 
 Every indicator is here because it triggers an action when it drifts; the dashboard
 displays them and `docs/protocol.md` sets the thresholds. Those thresholds are defined
-**once**, here, in :data:`THRESHOLDS`: the document and the application therefore cannot
-contradict each other.
+**once**, here, in :data:`THRESHOLDS`, and the dashboard imports them. `docs/protocol.md`
+repeats them in a hand-written table, and a test fails when an indicator of
+:data:`THRESHOLDS` is missing from that document.
 
 The computing functions are pure — data in, dictionary out — which makes them simple to
 test and to display.
@@ -56,9 +57,9 @@ THRESHOLDS: dict[str, Threshold] = {
         "higher_is_better",
         60,
         45,
-        "Set on the observed behaviour (around 65%): a rejection almost always comes from "
-        "an image being unavailable, which is normal. Below 45%, a source has changed its "
-        "format.",
+        "Sits below the observed rates, 69% and 74% in the two runs of 2026-09-15: a "
+        "rejection almost always comes from an image being unavailable, which is normal. "
+        "Below 45%, a source has changed its format.",
     ),
     "text_image_pairing_pct": Threshold(
         "Text-image pairing",

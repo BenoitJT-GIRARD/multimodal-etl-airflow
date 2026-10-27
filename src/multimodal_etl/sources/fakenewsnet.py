@@ -28,8 +28,8 @@ from multimodal_etl.sources import opengraph
 
 logger = get_logger(__name__)
 
-# Cache directory: once the CSVs are downloaded, later runs are offline and strictly
-# reproducible.
+# Cache directory: once the CSVs are downloaded, later runs read them from disk. The Open
+# Graph pages of the articles are still fetched over the network at every run.
 CACHE_DIR = RAW_DIR / "fakenewsnet"
 
 # The tweet_ids column holds thousands of tab-separated identifiers: without this, the
@@ -47,8 +47,12 @@ def _source_name(filename: str) -> tuple[str, str]:
     return organisation, label
 
 
-def download_csv(filename: str, config: ExtractionConfig) -> Path | None:
-    """Download a FakeNewsNet CSV from GitHub, or return the cached copy."""
+def download_csv(filename: str, config: ExtractionConfig) -> Path:
+    """Download a FakeNewsNet CSV from GitHub, or return the cached copy.
+
+    A failed download raises ``requests.RequestException``: :func:`fetch_fakenewsnet`
+    decides what that means for the source.
+    """
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     destination = CACHE_DIR / filename
 
@@ -58,14 +62,10 @@ def download_csv(filename: str, config: ExtractionConfig) -> Path | None:
 
     url = f"{config.fakenewsnet_base_url}/{filename}"
     logger.info("FakeNewsNet: downloading %s", url)
-    try:
-        response = requests.get(
-            url, timeout=config.request_timeout, headers={"User-Agent": config.user_agent}
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        logger.error("FakeNewsNet: download failed (%s): %s", filename, exc)
-        return None
+    response = requests.get(
+        url, timeout=config.request_timeout, headers={"User-Agent": config.user_agent}
+    )
+    response.raise_for_status()
 
     destination.write_text(response.text, encoding="utf-8")
     logger.info("FakeNewsNet: '%s' saved (%d bytes)", filename, len(response.content))
@@ -101,14 +101,21 @@ def fetch_fakenewsnet(config: ExtractionConfig) -> list[dict[str, object]]:
     """Load the labelled FakeNewsNet publications and recover their images.
 
     We take the same number of rows from each file, to keep a balance between ``real``
-    and ``fake`` and between the two fact-checking organisations.
+    and ``fake`` and between the two fact-checking organisations. A file that fails to
+    download is logged and skipped. When no file delivered a row and at least one download
+    failed, the first failure is raised, so the extract step records the source as failed
+    and not as empty.
     """
     per_file = max(1, config.max_items_per_source // len(config.fakenewsnet_files))
     records: list[dict[str, object]] = []
+    failures: list[requests.RequestException] = []
 
     for filename in config.fakenewsnet_files:
-        path = download_csv(filename, config)
-        if path is None:
+        try:
+            path = download_csv(filename, config)
+        except requests.RequestException as exc:
+            logger.error("FakeNewsNet: download failed (%s): %s", filename, exc)
+            failures.append(exc)
             continue
 
         organisation, label = _source_name(filename)
@@ -117,6 +124,8 @@ def fetch_fakenewsnet(config: ExtractionConfig) -> list[dict[str, object]]:
         logger.info("FakeNewsNet: %d rows read from %s", len(rows), filename)
 
     if not records:
+        if failures:
+            raise failures[0]
         logger.warning("FakeNewsNet: no data collected.")
         return []
 

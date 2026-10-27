@@ -4,7 +4,7 @@ The transformed dataset is loaded into a **relational** database through SQLAlch
 default we target a local **SQLite** (``data/db/multimodal_etl.db``): light, serverless,
 ideal for a reproducible demonstration. In production, setting ``MULTIMODAL_ETL_DB_URL``
 is enough to point at a managed **PostgreSQL** — authentication, roles and encryption
-handled server-side (see the monitoring plan).
+handled server-side (see "Credentials" in ``docs/DB.md``).
 
 Choosing relational is consistent with the data: it is tabular, of fixed schema, and meant
 for analytical queries (filter by source, by label, by presence of an image).
@@ -14,8 +14,8 @@ Two complementary writes happen on every run:
 * an **exploded model**, one table per entity of the conceptual schema, joined by the
   ``id`` (publication) and ``source_id`` (source) keys — this is the model that prepares
   the joins and avoids repeating the source metadata on every row;
-* a **flat table** ``publications``, denormalised, directly consumable for model training
-  and by the dashboard.
+* a **flat table** ``publications``, denormalised, directly consumable for model training.
+  The dashboard reads the exported dataset and the run records, not this table.
 
 **Idempotency is a property of the schema, not of this code.** Every table is declared with
 its primary key and every insert ignores conflicts. Replaying a task — which the DAG
@@ -76,11 +76,13 @@ def primary_key(table: str) -> str:
 
 
 def check_table(table: str, config: LoadConfig) -> None:
-    """Reject any table name that does not come from the project's schema.
+    """Reject a table name that is neither a table of the schema nor the configured flat table.
 
-    The queries below build their table name by interpolation. This check guarantees that
-    the name always comes from :data:`TABLES` (or from the configuration) and never from
-    outside input: that is what rules out any SQL injection.
+    One query in this module builds its table name by interpolation: the row count of
+    :func:`count_publications`, which passes ``config.table_name`` here first. With that
+    argument the check always passes. What keeps outside input out of that query is where the
+    name comes from: ``LoadConfig.table_name`` is set in the code, and neither the
+    environment nor the command-line scripts change it.
     """
     allowed = set(TABLES.values()) | {config.table_name}
     if table not in allowed:
@@ -201,7 +203,7 @@ def write_to_database(df: pd.DataFrame, config: LoadConfig | None = None) -> dic
     engine = create_engine(url)
 
     frames = split_into_tables(df)
-    frames[config.table_name] = df  # the flat table, ready for training and the dashboard
+    frames[config.table_name] = df  # the flat table, ready for model training
 
     per_table: dict[str, int] = {}
     try:

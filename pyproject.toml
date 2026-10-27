@@ -12,7 +12,6 @@ keywords = [
     "airflow",
     "multimodal",
     "fake-news",
-    "web-scraping",
 ]
 
 dependencies = [

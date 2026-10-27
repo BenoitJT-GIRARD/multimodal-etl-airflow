@@ -1,8 +1,8 @@
 """Central logging setup for the pipeline.
 
-The standard ``logging`` module is configured once and for all: console output plus a
-timestamped file under ``logs/``. Every module gets its logger through
-:func:`get_logger`.
+The standard ``logging`` module is configured once and for all: console output plus the file
+``var/logs/multimodal_etl.log``, every line of both carrying its timestamp. Every module gets
+its logger through :func:`get_logger`.
 """
 
 from __future__ import annotations

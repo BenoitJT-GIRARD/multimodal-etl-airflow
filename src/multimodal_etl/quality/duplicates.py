@@ -1,6 +1,6 @@
 """Measure what the deduplication key lets through.
 
-The publication identifier hashes the **exact** URL and the **exact** title. On a news
+The publication identifier hashes the URL as collected and the cleaned title. On a news
 feed — which is the use case — that is fragile in two ways:
 
 * a title corrected by one character, a typo fixed or an editorial suffix added, produces a

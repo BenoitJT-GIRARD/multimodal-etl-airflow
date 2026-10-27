@@ -133,7 +133,7 @@ CAPTURE_RUNS = 2
 #: Three of the four connectors, each ending on a different outcome, and none of them
 #: bringing back a publisher's work. `kaggle_fakeddit` reads the versioned sample and
 #: delivers; `newsdata` gets no key and turns itself off; `rss` is pointed at a port where
-#: nothing listens and comes back with nothing. `fakenewsnet` is left out: it downloads
+#: nothing listens and is reported unreachable. `fakenewsnet` is left out: it downloads
 #: someone else's headlines, and this repository does not publish a picture of those.
 CAPTURE_SOURCES = "rss,newsdata,kaggle_fakeddit"
 
@@ -148,8 +148,8 @@ STATE = (
     "selected"
 )
 DATA = (
-    "data/samples/fakeddit_sample.tsv — twenty-four invented rows with the real column "
-    "structure, and freely-licensed illustrations; no publisher's content is on screen"
+    "data/samples/fakeddit_sample.tsv — 24 made-up rows that keep 9 of the 16 columns of the "
+    "Kaggle export, and freely-licensed illustrations; no publisher's content is on screen"
 )
 
 
@@ -222,10 +222,10 @@ CAPTURES: tuple[Capture, ...] = (
         engine="playwright",
         app_state=STATE,
         demonstrates_behaviour=(
-            "three sources, three outcomes and one incident count of zero: the one that "
-            "delivered, the one turned off for want of an API key, and the one that answered "
-            "with nothing. Neither of the last two is an outage, and a dashboard that counted "
-            "them as one would sit amber for ever"
+            "three sources, three outcomes: the one that delivered, the one turned off for "
+            "want of an API key, and the one that could not be reached. Only the last counts "
+            "as an incident, and a dashboard that also counted the source turned off would "
+            "sit amber on every run without a key"
         ),
         data_source=DATA,
         ready_selector='div[data-testid="stDataFrame"]',
@@ -264,7 +264,10 @@ CAPTURES: tuple[Capture, ...] = (
         app_state=(
             "a local Airflow 2.10.4 on the LocalExecutor with a PostgreSQL metadata database, "
             "the image built from infra/Dockerfile, after `airflow dags test multimodal_etl "
-            "2026-09-15` ran the five tasks against the four live sources"
+            "2026-09-15` ran the five tasks with no NewsData.io key and no Kaggle export, so "
+            "the RSS feeds and the Open Graph pages of the FakeNewsNet articles were fetched "
+            "over the network, NewsData.io turned itself off and Fakeddit came from the "
+            "versioned sample"
         ),
         demonstrates_behaviour=(
             "the five tasks chain and every one of them ends green, which is what the DAG is "
@@ -272,8 +275,8 @@ CAPTURES: tuple[Capture, ...] = (
             "retry one of them without replaying the others"
         ),
         data_source=(
-            "the four live sources, read at run time; the picture shows task names and "
-            "outcomes, and no publication"
+            "the RSS feeds, FakeNewsNet and the versioned Fakeddit sample; the picture shows "
+            "task names and outcomes, and no publication"
         ),
         # A node turns green only once a run is SELECTED: the graph of a DAG with no run
         # chosen draws five grey boxes, which is a picture of nothing having happened.

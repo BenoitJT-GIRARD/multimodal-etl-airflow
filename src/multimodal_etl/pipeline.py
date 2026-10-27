@@ -1,8 +1,8 @@
 """The five pipeline steps, written so that each can run on its own.
 
 One function per step. These are **exactly the functions** called by the command-line
-scripts, by the notebooks and by the ``PythonOperator`` instances of the Airflow DAG:
-there is a single copy of the logic.
+scripts and by the ``PythonOperator`` instances of the Airflow DAG, and the notebooks call
+the lower-level functions these steps are built from: there is a single copy of the logic.
 
 Every step follows the same contract, and it is that contract which makes the tasks
 independent of one another:
@@ -83,7 +83,7 @@ def run_transform(config: TransformConfig | None = None) -> dict[str, object]:
 
     started = time.perf_counter()
     archive, stats = run_transformation(source, config or TransformConfig())
-    transit.stage(archive, transit.DATASET)
+    transit.stage_dataset(archive)
 
     metrics = {
         "at": _now(),

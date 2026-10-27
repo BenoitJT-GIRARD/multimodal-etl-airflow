@@ -73,6 +73,32 @@ def test_dataset_input_falls_back_to_the_last_archive(tmp_path: Path, monkeypatc
     assert found.name == archive.name
 
 
+def test_a_csv_dataset_is_staged_and_found_under_its_own_extension(
+    tmp_path: Path, monkeypatch
+) -> None:
+    interim, _, processed = _prepare(tmp_path, monkeypatch)
+    (interim / transit.DATASET).write_bytes(b"left by an earlier run in Parquet")
+    archive = processed / "publications_20260820_090000.csv"
+    archive.write_text("id\n1\n", encoding="utf-8")
+
+    staged = transit.stage_dataset(archive)
+
+    assert staged == interim / "dataset.csv"
+    assert not (interim / transit.DATASET).exists()
+    assert transit.dataset_input() == staged
+
+
+def test_dataset_input_falls_back_to_a_csv_archive(tmp_path: Path, monkeypatch) -> None:
+    _, _, processed = _prepare(tmp_path, monkeypatch)
+    archive = processed / "publications_20260820_090000.csv"
+    archive.write_text("id\n1\n", encoding="utf-8")
+
+    found = transit.dataset_input()
+
+    assert found is not None
+    assert found.name == archive.name
+
+
 def test_metrics_round_trip(tmp_path: Path, monkeypatch) -> None:
     _prepare(tmp_path, monkeypatch)
     transit.write_metrics("extract", {"duration_sec": 1.5, "publications_extracted": 10})
@@ -101,7 +127,7 @@ def test_clear_deletes_every_temporary_file(tmp_path: Path, monkeypatch) -> None
 def test_pipeline_load_step_delegates_to_the_loader():
     """Regression: pipeline.run_load used to shadow the loader it imported.
 
-    `pipeline` imported `load.etape_chargement` and then defined a function of the same
+    `pipeline` imported `load.run_load` and then defined a function of the same
     name, so the inner call resolved to the pipeline function itself and raised
     ``TypeError: takes from 0 to 1 positional arguments but 2 were given``. The third
     task of the Airflow DAG could not run, and no test covered this path.

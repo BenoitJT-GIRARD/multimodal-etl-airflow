@@ -50,13 +50,16 @@ metrics:
 
   images_downloaded:
     definition: >-
-      The share of the image URLs the sources announced that yielded a real, decodable file.
+      The share of the image downloads attempted during the run that yielded a real, decodable
+      file. A download is attempted for each publication whose image URL has an HTTP scheme
+      and a host, up to the per-run cap of MULTIMODAL_ETL_MAX_IMAGES, 250 by default.
     unit: "%"
     direction: higher_is_better
     anchor: "94.9 — reports/indicators.json#images_downloaded_pct"
     business_reading: >-
-      Fifty-one image URLs in a thousand point at nothing. That is the cost of working from
-      links rather than from files, and it is why the files are fetched rather than referenced.
+      Fifty-one download attempts in a thousand produced no usable file. That is the cost of
+      working from links rather than from files, and it is why the files are fetched rather
+      than referenced.
     source: "src/multimodal_etl/kpi.py, from the image counters of the extraction step"
     uncertainty: >-
       A count over one complete run. It depends on the publishers' media servers on the day,
@@ -115,10 +118,14 @@ metrics:
     business_reading: >-
       Nothing is collected twice. A rate that climbs means either the same articles are being
       re-ingested, or the identifier has stopped being stable.
-    source: "src/multimodal_etl/quality/duplicates.py, and the transform step's statistics"
+    source: >-
+      src/multimodal_etl/transform.py, which drops the rows whose identifier is already present,
+      and src/multimodal_etl/kpi.py, which divides that count by the publications collected
     uncertainty: >-
-      A count over one complete run. The measure is paired with a test that injects a
-      realistic republication, so a zero means « nothing there » and not « blind ».
+      A count over one complete run. Only an exact repeat of the identifier is counted, and a
+      republication under a variant URL or an edited title gets a new identifier.
+      src/multimodal_etl/quality/duplicates.py separately counts the pairs that match once URL
+      and title are normalised, for reports/data_quality.json.
 
   total_duration:
     definition: "The wall-clock time of the three steps that do work: extract, transform, load."
@@ -126,7 +133,7 @@ metrics:
     direction: lower_is_better
     anchor: "66.41 — reports/indicators.json#total_duration_sec"
     business_reading: >-
-      A daily run finishes in under a minute, so the window it occupies is never the
+      The published run took 66 seconds, so the window a daily run occupies is not the
       constraint. Beyond five minutes it starts colliding with whatever runs after it.
     source: "src/multimodal_etl/pipeline.py, which times each step and writes the run record"
     uncertainty: >-

@@ -63,6 +63,10 @@ def _cause_of(exc: Exception) -> str:
     """Name what went wrong, so a spent quota is not confused with a broken connector."""
     if isinstance(exc, requests.exceptions.HTTPError) and "429" in str(exc):
         return QUOTA
+    # Checked before the network branch: requests makes its JSON decoding error a
+    # RequestException, although the request itself succeeded and the answer is what is wrong.
+    if isinstance(exc, requests.exceptions.JSONDecodeError):
+        return MALFORMED
     if isinstance(exc, requests.exceptions.RequestException):
         return NETWORK
     return MALFORMED

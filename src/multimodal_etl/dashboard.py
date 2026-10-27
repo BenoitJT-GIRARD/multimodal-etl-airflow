@@ -17,11 +17,18 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from dotenv import load_dotenv
 from plotly.subplots import make_subplots
 
-from multimodal_etl.config import absolute_path
-from multimodal_etl.figure_style import PALETTE, STATE
-from multimodal_etl.kpi import (
+from multimodal_etl.utils.paths import ROOT_DIR
+
+# `.env` before the modules that read the environment: `config` resolves the data directory
+# at import time, and the dashboard reads the datasets and run records found there.
+load_dotenv(ROOT_DIR / ".env")
+
+from multimodal_etl.config import absolute_path  # noqa: E402
+from multimodal_etl.figure_style import PALETTE, STATE  # noqa: E402
+from multimodal_etl.kpi import (  # noqa: E402
     compute_kpis,
     evaluate_thresholds,
     load_latest_dataset,
@@ -54,8 +61,8 @@ CAUSE_COLOURS = {
     "malformed": STATE["danger"],
 }
 
-#: Plotly inherits nothing from the Streamlit theme: a chart left alone comes out in the
-#: library's own ten colours, next to a page painted in this project's.
+#: `st.plotly_chart` applies Streamlit's own chart theme by default, and that theme's colours
+#: are not this project's palette. Every figure therefore sets the palette's colours itself.
 LAYOUT = {
     "paper_bgcolor": PALETTE["paper"],
     "plot_bgcolor": PALETTE["paper"],

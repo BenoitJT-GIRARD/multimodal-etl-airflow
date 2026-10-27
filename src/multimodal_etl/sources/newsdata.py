@@ -47,8 +47,11 @@ def fetch_newsdata(config: ExtractionConfig) -> list[dict[str, object]]:
     """Query the NewsData.io API and return the articles that carry an image.
 
     Call limits are handled explicitly: we read a single page — the free tier caps a
-    request at 10 articles and enforces a daily quota — we set a timeout, and we catch
-    every network or HTTP error.
+    request at 10 articles and enforces a daily quota — and we set a timeout. A failure is
+    raised for the extract step to classify: a network error or an HTTP error status as a
+    ``requests.RequestException`` (the extract step reads a 429 status as a spent quota), an
+    answer that is not JSON as ``requests.exceptions.JSONDecodeError``, and a payload that
+    reports an error as a ``ValueError``.
     """
     api_key = os.environ.get("NEWSDATA_API_KEY", "").strip()
     if not api_key:
@@ -56,27 +59,24 @@ def fetch_newsdata(config: ExtractionConfig) -> list[dict[str, object]]:
         return []
 
     params = {
-        "apikey": api_key,
         "language": config.newsdata_language,
         "image": 1,  # only ask for articles that have an image (multimodal)
     }
     logger.info("NewsData.io: calling the API (%s)", config.newsdata_endpoint)
-    try:
-        response = requests.get(
-            config.newsdata_endpoint,
-            params=params,
-            timeout=config.request_timeout,
-            headers={"User-Agent": config.user_agent},
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        logger.error("NewsData.io: the API call failed: %s", exc)
-        return []
+    # The key goes in the X-ACCESS-KEY header, which the API documents as its recommended
+    # method. Passed as the `apikey` query parameter, it was part of the URL that requests
+    # quotes in every HTTP error, and the extract step writes that message to the logs.
+    response = requests.get(
+        config.newsdata_endpoint,
+        params=params,
+        timeout=config.request_timeout,
+        headers={"User-Agent": config.user_agent, "X-ACCESS-KEY": api_key},
+    )
+    response.raise_for_status()
 
     payload = response.json()
     if payload.get("status") != "success":
-        logger.warning("NewsData.io: the response reports an error: %s", payload.get("results"))
-        return []
+        raise ValueError(f"NewsData.io reported an error: {payload.get('results')}")
 
     articles = payload.get("results", [])[: config.max_items_per_source]
     records = [_parse_article(article) for article in articles]

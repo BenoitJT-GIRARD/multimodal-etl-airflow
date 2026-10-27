@@ -10,8 +10,8 @@ reference dataset: **the file is downloaded once, by hand**, then dropped into
 ``data/raw/kaggle/``. The connector only reads it.
 
 When the file is absent, the connector falls back to a **versioned demonstration sample**
-(``data/samples/fakeddit_sample.tsv``): made-up contents, the same column structure as the
-real dataset, royalty-free images. The pipeline therefore stays runnable by anyone,
+(``data/samples/fakeddit_sample.tsv``): made-up contents under nine of the real dataset's
+column names, royalty-free images. The pipeline therefore stays runnable by anyone,
 straight away.
 """
 

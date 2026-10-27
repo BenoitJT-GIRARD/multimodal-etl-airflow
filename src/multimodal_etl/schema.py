@@ -2,8 +2,9 @@
 
 This module is the **single source of truth** of the dataset: it describes every field
 (name, type, role in the AI use case) and provides the :class:`Publication` structure the
-transform step returns. The conceptual schema and the documentation are both generated
-from :data:`FIELDS`, which is what keeps diagram, code and data aligned.
+transform step returns. The conceptual diagram, ``docs/data_schema.mmd``, is generated from
+:data:`FIELDS`. The field dictionary in ``docs/DB.md`` is written by hand, and a test fails
+when a field of :data:`FIELDS` is missing from the diagram or from the dictionary.
 
 Every field belongs to a **conceptual entity** (:data:`ENTITIES`): that is the piece of
 information that lets us draw the conceptual model and split the load into tables joined

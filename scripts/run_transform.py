@@ -11,8 +11,15 @@ from __future__ import annotations
 
 import sys
 
-from multimodal_etl.logging_setup import setup_logging
-from multimodal_etl.pipeline import run_transform
+from dotenv import load_dotenv
+
+from multimodal_etl.utils.paths import ROOT_DIR as ROOT
+
+# `.env` before the package. `scripts/run_etl.py` carries the reason.
+load_dotenv(ROOT / ".env")
+
+from multimodal_etl.logging_setup import setup_logging  # noqa: E402
+from multimodal_etl.pipeline import run_transform  # noqa: E402
 
 
 def main() -> None:

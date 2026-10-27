@@ -8,6 +8,7 @@ that the **database**, and not the loader, refuses a second copy of a row.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -15,7 +16,8 @@ import pytest
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 
-from multimodal_etl.config import LoadConfig
+from multimodal_etl import pipeline, transform, transit
+from multimodal_etl.config import LoadConfig, TransformConfig
 from multimodal_etl.load import (
     count_publications,
     read_dataset,
@@ -147,6 +149,43 @@ def test_read_dataset_handles_parquet_and_csv(tmp_path: Path) -> None:
     parquet_path = tmp_path / "d.parquet"
     df.to_parquet(parquet_path, index=False)
     assert len(read_dataset(parquet_path)) == 1
+
+
+def test_a_csv_export_is_loaded_through_the_working_area(tmp_path: Path, monkeypatch) -> None:
+    """`output_format="csv"` used to stage the CSV as `dataset.parquet`, and the load read it
+    as Parquet and failed. The transform and load steps run here as the DAG chains them."""
+    interim, processed = tmp_path / "interim", tmp_path / "processed"
+    interim.mkdir()
+    processed.mkdir()
+    monkeypatch.setattr(transit, "INTERIM_DIR", interim)
+    monkeypatch.setattr(transit, "PROCESSED_DIR", processed)
+    monkeypatch.setattr(transform, "PROCESSED_DIR", processed)
+
+    image = tmp_path / "photo.jpg"
+    image.write_bytes(b"an image file the extract step would have downloaded")
+    raw = {
+        "source": "rss:local_wire",
+        "source_type": "rss",
+        "access_method": "rss_feed",
+        "title": "Harbour works finish two months ahead of schedule",
+        "text": "The second basin opened this morning, after eighteen months of work.",
+        "url": "https://wire.invalid/article/1",
+        "image_url": "https://wire.invalid/photo-1.jpg",
+        "image_path": str(image),
+        "image_source": "native",
+        "published_at": "Mon, 14 Sep 2026 08:00:00 GMT",
+        "language": "en",
+        "label": None,
+        "label_source": None,
+    }
+    (interim / transit.EXTRACTION).write_text(json.dumps([raw]), encoding="utf-8")
+
+    transformed = pipeline.run_transform(TransformConfig(output_format="csv"))
+    loaded = pipeline.run_load(_config(tmp_path))
+
+    assert transformed["archive"].endswith(".csv")
+    assert Path(loaded["input"]).name == "dataset.csv"
+    assert loaded["publications_added"] == 1
 
 
 def test_the_primary_key_is_declared_in_the_database(tmp_path: Path) -> None:

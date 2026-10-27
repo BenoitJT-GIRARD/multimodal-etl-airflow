@@ -44,7 +44,7 @@ What each source contributes, not merely how much.
 
 ### What the labelled subset really looks like
 
-The 28 labelled publications average **56.1 characters** of text, against 383.5 for the unlabelled ones. The labels come from FakeNewsNet and Fakeddit, which publish a headline and no article body: the only rows usable for supervised training are also the textually poorest. A model trained on this dataset would be learning from headlines.
+The 28 labelled publications average **56.1 characters** of text, against 383.5 for the unlabelled ones. The labels come from FakeNewsNet and Fakeddit, which publish a headline and no article body: the only rows usable for supervised training are also the textually poorest. A model trained on this dataset would be learning from headlines. Unless a Kaggle export sits in `data/raw/kaggle/`, the Fakeddit rows are the invented rows of the versioned sample, `data/samples/fakeddit_sample.tsv`.
 
 ## Duplicates
 

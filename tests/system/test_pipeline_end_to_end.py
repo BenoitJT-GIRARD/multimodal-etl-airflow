@@ -6,9 +6,9 @@ requests fetches the JPEG, Pillow opens it, pandas writes the Parquet, SQLAlchem
 tables and inserts the rows, and the working area is emptied at the end.
 
 **Why a local feed rather than the three shipped ones.** A system test whose result depends on
-what the BBC published this morning is not a test. The three real feeds are exercised by
-tests/unit/sources/, against captured XML; what is checked here is the chain, end to end, and
-a chain needs an input whose content is known in advance.
+what the BBC published this morning is not a test. The RSS connector is exercised by
+tests/unit/sources/, against a small invented feed; what is checked here is the chain, end to
+end, and a chain needs an input whose content is known in advance.
 
 The two values the run has to produce are written into the feed: **three** entries, of which
 **two** carry a usable image. The third is the one the founding rule of the dataset throws

@@ -25,14 +25,21 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from multimodal_etl.kpi import compute_kpis, evaluate_thresholds, load_latest_dataset
-from multimodal_etl.quality.duplicates import (
+from dotenv import load_dotenv
+
+from multimodal_etl.utils.paths import REPORTS_DIR, ROOT_DIR
+
+# `.env` before the package: `--measure` and `--duplicates` read the data directory that
+# `config` resolves at import time. `scripts/run_etl.py` carries the reason.
+load_dotenv(ROOT_DIR / ".env")
+
+from multimodal_etl.kpi import compute_kpis, evaluate_thresholds, load_latest_dataset  # noqa: E402
+from multimodal_etl.quality.duplicates import (  # noqa: E402
     duplicate_summary,
     missed_duplicates,
     title_summary,
 )
-from multimodal_etl.quality.report import measure, render
-from multimodal_etl.utils.paths import REPORTS_DIR
+from multimodal_etl.quality.report import measure, render  # noqa: E402
 
 MEASURES = REPORTS_DIR / "data_quality.json"
 INDICATORS = REPORTS_DIR / "indicators.json"

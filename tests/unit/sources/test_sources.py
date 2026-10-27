@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import feedparser
+import pytest
+import requests
 
 from multimodal_etl.config import ExtractionConfig
 from multimodal_etl.sources import fakenewsnet, kaggle_fakeddit, newsdata, opengraph, rss
@@ -29,6 +32,17 @@ FLUX_RSS_EXEMPLE = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
+def _response(url: str, status: int, body: bytes, content_type: str) -> requests.Response:
+    """A real `requests.Response`, so `raise_for_status` and `json` behave as they do live."""
+    response = requests.Response()
+    response.status_code = status
+    response.reason = "Too Many Requests" if status == 429 else "OK"
+    response._content = body
+    response.headers["Content-Type"] = content_type
+    response.url = url
+    return response
+
+
 # --------------------------------------------------------------------------- #
 # Flux RSS
 # --------------------------------------------------------------------------- #
@@ -50,9 +64,15 @@ def test_image_extraction_from_an_img_tag_in_the_summary() -> None:
 
 
 def test_fetch_rss_feed_normalises_the_fields(monkeypatch) -> None:
-    flux = feedparser.parse(FLUX_RSS_EXEMPLE)
-    monkeypatch.setattr(rss.feedparser, "parse", lambda *a, **k: flux)
-    records = rss.fetch_rss_feed("presse_test", "https://exemple", ExtractionConfig())
+    calls = []
+
+    def get(url, **kwargs):
+        calls.append(kwargs)
+        return _response(url, 200, FLUX_RSS_EXEMPLE.encode(), "application/rss+xml")
+
+    monkeypatch.setattr(rss.requests, "get", get)
+    config = ExtractionConfig()
+    records = rss.fetch_rss_feed("presse_test", "https://exemple.invalid/rss", config)
 
     assert len(records) == 2
     premier = records[0]
@@ -60,14 +80,36 @@ def test_fetch_rss_feed_normalises_the_fields(monkeypatch) -> None:
     assert premier["access_method"] == "rss_feed"
     assert premier["image_source"] == "native"
     assert records[1]["image_source"] == "none"
+    # The feed is downloaded under the same timeout as every other request of the pipeline.
+    assert calls[0]["timeout"] == config.request_timeout
 
 
-def test_fetch_rss_feed_survives_an_unreachable_feed(monkeypatch) -> None:
-    def fails(*args, **kwargs):
-        raise OSError("réseau indisponible")
+def test_an_unreachable_feed_is_raised_when_no_other_feed_delivered(monkeypatch) -> None:
+    def fails(url, **kwargs):
+        raise requests.exceptions.ConnectionError("network unreachable")
 
-    monkeypatch.setattr(rss.feedparser, "parse", fails)
-    assert rss.fetch_rss_feed("presse_test", "https://exemple", ExtractionConfig()) == []
+    monkeypatch.setattr(rss.requests, "get", fails)
+    config = replace(ExtractionConfig(), rss_feeds=(("presse_test", "https://exemple.invalid"),))
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        rss.fetch_all_rss(config)
+
+
+def test_an_unreachable_feed_does_not_lose_the_other_feeds(monkeypatch) -> None:
+    def get(url, **kwargs):
+        if "down" in url:
+            raise requests.exceptions.Timeout("timed out")
+        return _response(url, 200, FLUX_RSS_EXEMPLE.encode(), "application/rss+xml")
+
+    monkeypatch.setattr(rss.requests, "get", get)
+    config = replace(
+        ExtractionConfig(),
+        rss_feeds=(("down", "https://down.invalid/rss"), ("up", "https://up.invalid/rss")),
+    )
+
+    records = rss.fetch_all_rss(config)
+
+    assert {record["source"] for record in records} == {"rss:up"}
 
 
 # --------------------------------------------------------------------------- #
@@ -77,6 +119,31 @@ def test_newsdata_is_skipped_without_a_key(monkeypatch) -> None:
     monkeypatch.delenv("NEWSDATA_API_KEY", raising=False)
     assert newsdata.is_enabled() is False
     assert newsdata.fetch_newsdata(ExtractionConfig()) == []
+
+
+def test_newsdata_raises_a_spent_quota(monkeypatch) -> None:
+    monkeypatch.setenv("NEWSDATA_API_KEY", "a-test-key")
+    monkeypatch.setattr(
+        newsdata.requests,
+        "get",
+        lambda url, **kwargs: _response(url, 429, b'{"status": "error"}', "application/json"),
+    )
+
+    with pytest.raises(requests.exceptions.HTTPError, match="429"):
+        newsdata.fetch_newsdata(ExtractionConfig())
+
+
+def test_newsdata_raises_a_payload_that_reports_an_error(monkeypatch) -> None:
+    monkeypatch.setenv("NEWSDATA_API_KEY", "a-test-key")
+    body = b'{"status": "error", "results": {"message": "unexpected"}}'
+    monkeypatch.setattr(
+        newsdata.requests,
+        "get",
+        lambda url, **kwargs: _response(url, 200, body, "application/json"),
+    )
+
+    with pytest.raises(ValueError, match="unexpected"):
+        newsdata.fetch_newsdata(ExtractionConfig())
 
 
 # --------------------------------------------------------------------------- #
@@ -99,6 +166,17 @@ def test_read_csv_supports_very_long_fields(tmp_path: Path) -> None:
 
     assert len(lignes) == 1
     assert lignes[0]["title"] == "Un titre"
+
+
+def test_fakenewsnet_raises_when_every_download_failed(tmp_path: Path, monkeypatch) -> None:
+    def fails(url, **kwargs):
+        raise requests.exceptions.ConnectionError("network unreachable")
+
+    monkeypatch.setattr(fakenewsnet, "CACHE_DIR", tmp_path / "fakenewsnet")
+    monkeypatch.setattr(fakenewsnet.requests, "get", fails)
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        fakenewsnet.fetch_fakenewsnet(ExtractionConfig())
 
 
 def test_build_fakenewsnet_record_adds_the_schema_and_the_label() -> None:

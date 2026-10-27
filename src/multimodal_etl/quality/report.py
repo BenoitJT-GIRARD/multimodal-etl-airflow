@@ -207,5 +207,7 @@ def _label_note(split: dict[str, float]) -> str:
         f"{split['unlabelled_mean_text']} for the unlabelled ones. The labels come from "
         "FakeNewsNet and Fakeddit, which publish a headline and no article body: the only "
         "rows usable for supervised training are also the textually poorest. A model "
-        "trained on this dataset would be learning from headlines."
+        "trained on this dataset would be learning from headlines. Unless a Kaggle export "
+        "sits in `data/raw/kaggle/`, the Fakeddit rows are the invented rows of the "
+        "versioned sample, `data/samples/fakeddit_sample.tsv`."
     )
