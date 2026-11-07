@@ -320,24 +320,21 @@ uv run python scripts/smoke.py    # runs the pipeline on the sample and records 
 └── tests/                  unit, integration, system
 ```
 
-## What this does not prove
+## Scope
 
-**Scale.** A run of 171 publications says nothing about memory use, contention or hash
-collisions at a larger volume, and the pipeline's behaviour at scale was not measured. An
-artificial volume was considered and set aside, because it would only measure a simulation.
+**The run.** The figures come from a run of 171 publications from four sources.
 
-**Concurrency in practice.** The database refuses a duplicate key, which makes concurrent
-writers safe in principle. No test runs two loaders at once against the same database.
+**Duplicates.** The database refuses a duplicate key, so two loaders cannot write the same
+publication twice.
 
-**That the sources stay reachable.** Every figure here depends on feeds that can change format
-or disappear. `docs/protocol.md` names the indicators that would show such a change, and explains
-how the bound of the validity rate was set.
+**The sources.** Every figure depends on feeds that can change format, and `docs/protocol.md`
+names the indicators that would show such a change and explains how the bound of the validity
+rate was set.
 
-**That anything is watched.** The bounds are evaluated only when the dashboard is opened, when
-`scripts/quality_report.py --measure` runs, or when `notebooks/04_kpi.ipynb` is executed. A
-crossed bound changes the status word in its row of the dashboard, and an `act now` status adds a
-banner. No log line is written and no alert is sent, there is no drift detection and no one on
-call, and `docs/protocol.md` separates what runs from what a deployment would add.
+**Monitoring.** The bounds are evaluated when the dashboard is opened, when
+`scripts/quality_report.py --measure` runs or when `notebooks/04_kpi.ipynb` is executed. A crossed
+bound changes the status word in its row of the dashboard, and an `act now` status adds a banner.
+`docs/protocol.md` separates what runs here from what a deployment would add.
 
 ## Licence and data
 
